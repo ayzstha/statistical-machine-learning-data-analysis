@@ -1,6 +1,6 @@
 ---
-title: "Homework 05: Preprocessing and Cross Validation" 
-author: "Aayush, Shubha, Tadeo"
+title: "Statistical Machine Learning: Data Analysis" 
+author: "Aayush Shrestha"
 editor: visual
 format:
   html:
@@ -9,60 +9,52 @@ format:
 
 # Introduction
 
-In this homework you will practice pre-processing data and using cross-validation to evaluate regression models.
+In this project, I will analyze the E-Commerce Shipping Dataset from Kaggle. I will clean the data if necessary, explore trends, patterns, and anomalies, and present my findings in a clear and concise way. Through this project, I will showcase my skills in data manipulation, visualization, statistical inference, and basic statistical modeling. Additionally, it will highlight my familiarity with fundamental machine learning concepts and techniques, including regression and classification problems, data preprocessing, feature engineering, model building, and evaluation.
 
-## Learning goals
+I will also be using the `tidyverse` and `tidymodels` libraries throughout the project.
 
-In this assignment, you will...
+## Data: E-Commerce Shipping Dataset
 
--   Use exploratory data analysis to inform feature engineering steps
--   Pre-process data and impute missing values
--   Evaluate and compare models using cross-validation
+The dataset for this analysis comes from an international e-commerce company seeking key insights from its customer database. The company, which specializes in selling electronic products, aims to leverage advanced machine learning techniques to better understand its customers. The dataset, compiled by Prachi Gopalani on Kaggle, consists of 10,999 observations across 12 variables and serves as the foundation for model development.
 
-# Getting Started
+\
+The data contains the following information:
 
-In last weeks homework, you learned how to share your work using GitHub and to resolve merge conflicts using branches. From here on out, you are free to use whatever version control strategy you like.
+-   <div>
 
-## Teams & Rules
+    -   **ID:** ID Number of Customers.
 
-You can find your team for this assignment on Canvas in the **People** section. The group set is called **HW5**. Your group will consist of 2-3 people and has been randomly generated. You have now been exposed to all of the Git concepts that we will talk about in this class. It is up to you to apply them to complete your homework in any way you see fit. Some rules:
+    -   **Warehouse block:** The Company have big Warehouse which is divided in to block such as A,B,C,D,E.
 
-1.  You are all responsible for understanding the work that you turn in.
-2.  All team members must make roughly equal contributions to the homework.
-3.  Any work completed by a team member must be committed and pushed to GitHub by that person.
+    -   **Mode of shipment:**The Company Ships the products in multiple way such as Ship, Flight and Road.
 
-## Exercise 0
+    -   **Customer care calls:** The number of calls made from enquiry for enquiry of the shipment.
 
-As in your previous homework's, create your team on GitHub classroom and clone the repository. [Here](https://classroom.github.com/a/VhxbjrFN) is a link to the homework.
+    -   **Customer rating:** The company has rated from every customer. 1 is the lowest (Worst), 5 is the highest (Best).
 
-## Data: LEGO
+    -   **Cost of the product:** Cost of the Product in US Dollars.
 
-The data for this analysis includes information about LEGO sets from themes produced January 1, 2018 and September 11, 2020. The data were originally scraped from Brickset.com, an online LEGO set guide and were obtained for this assignment from Peterson and Zieglar ([2021](https://www.tandfonline.com/doi/full/10.1080/26939169.2021.1946450)).
+    -   **Prior purchases:** The Number of Prior Purchase.
 
-You will work with data on about 400 randomly selected LEGO sets produced during this time period. The primary variables are interest in this analysis are:
+    -   **Product importance:** The company has categorized the product in the various parameter such as low, medium, high.
 
--   `Item_Number`: a serial code corresponding to the set.
--   `Set_Name`: The name of the LEGO set.
--   `Theme`: Theme of the LEGO set.
--   `Pieces`: Number of pieces in the set from brickset.com.
--   `Amazon_Price`: Amazon price of the set scraped from brickset.com (in U.S. dollars).
--   `Year` : Year the LEGO set was produced.
--   `Ages`: Variable stating what aged children the set is appropriate for.
--   `Pages`: Number of pages in the instruction booklet.
--   `Minifigures`: Number of minifigures (LEGO people) in the set scraped from brickset.com. LEGO sets with no minifigures have been coded as NA. NA's also represent missing data. This is due to how brickset.com reports their data.
--   `Packaging`: What type of packaging the set came in.
--   `Weight`: The weight of the set.
--   `Unique_Pieces`: The number of unique pieces in each set.
--   `Availability`: Where the set can be purchased.
--   `Size`: General size of the interlocking bricks (Large = LEGO Duplo sets - which include large brick pieces safe for children ages 1 to 5, Small = LEGO sets which- include the traditional smaller brick pieces created for age groups 5 and - older, e.g., City, Friends).
+    -   **Gender:** Male and Female.
 
-Your ultimate goal will be to predict `Amazon_Price` from the other features.
+    -   **Discount offered:** Discount offered on that specific product.
+
+    -   **Weight in gms:** It is the weight in grams.
+
+    -   **Reached on time:** It is the target variable, where 1 Indicates that the product has NOT reached on time and 0 indicates it has reached on time.
+
+    </div>
+
+My ultimate goal will be to predict `Reached on time` from the other features.
 
 # Loading & Cleaning the Data
 
 ## Libraries
 
-All the libraries required for the completion of the homework:
+All the libraries required for the completion of the analysis:
 
 ```{r}
 library(readr)
@@ -72,21 +64,22 @@ library(tidyverse)
 library(tidymodels)
 library(caret)
 library(ISLR2)
+library(Stat2Data)
 library(readODS)
 library(ggrepel)
 
 tidymodels_prefer()
 ```
 
-## Exercise 1
+## Step 1
 
 ::: {.callout-tip title="Question"}
-The data are contained in `lego-sample.csv`. Load the data.
+The data are contained in `train.csv`, so we load the data.
 :::
 
 ```{r}
-lego <- read_csv("lego-sample.csv")
-head(lego)
+data("Hawks")
+str(Hawks)
 ```
 
 ## Exercise 2
