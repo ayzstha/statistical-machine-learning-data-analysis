@@ -9,11 +9,11 @@ format:
 
 # Introduction
 
-In this project, I will analyze the E-Commerce Shipping Dataset from Kaggle. I will clean the data if necessary, explore trends, patterns, and anomalies, and present my findings in a clear and concise way. Through this project, I will showcase my skills in data manipulation, visualization, statistical inference, and basic statistical modeling. Additionally, it will highlight my familiarity with fundamental machine learning concepts and techniques, including regression and classification problems, data preprocessing, feature engineering, model building, and evaluation.
+In this project, I will analyze the Hawks dataset from the Stat2. I will clean the data if necessary, explore trends, patterns, and anomalies, and present my findings in a clear and concise way. Through this project, I will showcase my skills in data manipulation, visualization, statistical inference, and basic statistical modeling. Additionally, it will highlight my familiarity with fundamental machine learning concepts and techniques, including regression and classification problems, data preprocessing, feature engineering, model building, and evaluation.
 
 I will also be using the `tidyverse` and `tidymodels` libraries throughout the project.
 
-## Data: E-Commerce Shipping Dataset
+## Data: Hawks Dataset
 
 The dataset for this analysis comes from an international e-commerce company seeking key insights from its customer database. The company, which specializes in selling electronic products, aims to leverage advanced machine learning techniques to better understand its customers. The dataset, compiled by Prachi Gopalani on Kaggle, consists of 10,999 observations across 12 variables and serves as the foundation for model development.
 
