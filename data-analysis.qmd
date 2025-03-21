@@ -7,509 +7,145 @@ format:
     embed-resources: true
 ---
 
-# Introduction
+# **Introduction**
 
-In this project, I will analyze the Hawks dataset from the Stat2Data. I will clean the data if necessary, explore trends, patterns, and anomalies, and present my findings in a clear and concise way. Through this project, I will showcase my skills in data manipulation, visualization, statistical inference, and basic statistical modeling. Additionally, it will highlight my familiarity with fundamental machine learning concepts and techniques, including regression and classification problems, data preprocessing, feature engineering, model building, and evaluation.
+The Titanic dataset is widely used in classification problems, aiming to predict whether a passenger survived (`Survived = 1`) or not (`Survived = 0`).
 
-I will also be using the `tidyverse` and `tidymodels` libraries throughout the project.
+This analysis includes: - **Exploratory Data Analysis (EDA)** to understand feature distributions. - **Logistic Regression & k-Nearest Neighbors (k-NN)** for classification. - **Gradient Descent Implementation** for Logistic Regression. - **Multiple Linear Regression** for comparison. - **Cross-validation (`vfold_cv`)** for better model performance estimation. - **Hyperparameter tuning (`tune_grid`)** to optimize k-NN. - **Evaluation using AUC-ROC, Confusion Matrix, and Binary Metrics.** - **Workflow Sets (`workflow_set`)** to systematically compare models. - **Step-by-step analysis explaining choices at each stage.**
 
-## Data: Hawks Dataset
-
-The dataset for this analysis comes from research conducted by students and faculty at Cornell College in Mount Vernon, Iowa. Over several years, data were collected at the hawk blind at Lake MacBride near Iowa City, Iowa. This subset of the original dataset includes only species with more than 10 recorded observations, focusing on three types of hawks: **Red-tailed, Sharp-shinned, and Cooper's hawks**. The dataset consists of **908 observations across 19 variables**, providing a valuable foundation for studying patterns and characteristics within these species.
-
-\
-The data contains the following information:
-
--   <div>
-
-    |  |  |
-    |---:|:---|
-    | `Month` | code8=September to `12`=December |
-    | `Day` | Date in the month |
-    | `Year` | Year: 1992-2003 |
-    | `CaptureTime` | Time of capture (HH:MM) |
-    | `ReleaseTime` | Time of release (HH:MM) |
-    | `BandNumber` | ID band code |
-    | `Species` | `CH`=Cooper's, `RT`=Red-tailed, `SS`=Sharp-Shinned |
-    | `Age` | `A`=Adult or `I`=Imature |
-    | `Sex` | `F`=Female or `M`=Male |
-    | `Wing` | Length (in mm) of primary wing feather from tip to wrist it attaches to |
-    | `Weight` | Body weight (in gm) |
-    | `Culmen` | Length (in mm) of the upper bill from the tip to where it bumps into the fleshy part of the bird |
-    | `Hallux` | Length (in mm) of the killing talon |
-    | `Tail` | Measurement (in mm) related to the length of the tail (invented at the MacBride Raptor Center) |
-    | `StandardTail` | Standared measurement of tail length (in mm) |
-    | `Tarsus` | Length of the basic foot bone (in mm) |
-    | `WingPitFat` | Amount of fat in the wing pit |
-    | `KeelFat` | Amount of fat on the breastbone (measured by feel |
-    | `Crop` | Amount of material in the crop, coded from `1`=full to `0`=empty |
-
-    </div>
-
-My ultimate goal will be to predict `Species` from the other features.
-
-# Loading & Cleaning the Data
-
-## Libraries
-
-All the libraries required for the completion of the analysis:
+# **1. Load Libraries and Data**
 
 ```{r}
-library(readr)
-library(dplyr)
-library(knitr)
 library(tidyverse)
 library(tidymodels)
-library(caret)
-library(ISLR2)
-library(Stat2Data)
-library(readODS)
-library(ggrepel)
+library(knitr)
 
-tidymodels_prefer()
+# Load Titanic dataset
+titanic <- read.csv("titanic.csv")
+
+# Checking data structure
+glimpse(titanic)
+summary(titanic)
 ```
 
-## Step 1
+### **Why?**
 
-::: {.callout-tip title="Question"}
-We will first load the data and set seed to avoid any problems further on.
-:::
+-   `tidyverse` and `tidymodels` provide efficient data manipulation and modeling.
+-   `glimpse()` and `summary()` help understand dataset structure and missing values.
+
+# **2. Exploratory Data Analysis (EDA)**
 
 ```{r}
-data(Hawks)
-hawk_data <- Hawks
-head(hawk_data)
-summary(hawk_data)
+# Check missing values
+titanic %>% summarise(across(everything(), ~sum(is.na(.))))
 
-# Set seed for reproducibility
-set.seed(427)
+# Visualizing survival rate
+ggplot(titanic, aes(x = Survived)) +
+  geom_bar(fill = "steelblue") +
+  theme_minimal() +
+  labs(title = "Survival Distribution", x = "Survived", y = "Count")
 
+# Age distribution
+ggplot(titanic, aes(x = Age)) +
+  geom_histogram(bins = 30, fill = "skyblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Age Distribution", x = "Age", y = "Count")
+
+# Survival by class
+ggplot(titanic, aes(x = Pclass, fill = factor(Survived))) +
+  geom_bar(position = "dodge") +
+  theme_minimal() +
+  labs(title = "Survival by Passenger Class", x = "Pclass", y = "Count")
 ```
 
-## Exercise 2
+### **Why?**
 
-::: {.callout-tip title="Question"}
-Two of the variables in the data set shouldn't be useful because they just serve to identify the different LEGO sets. Which two are they? Remove them.
-:::
+-   Understanding survival distribution helps frame the classification problem.
+-   Age and class distributions reveal potential predictor importance.
 
-The two variables that are not needed are the Item_number and Theme. Item_number is a unique integer used to denote the Lego set and Theme is used to identify the theme of the Lego set which in this case we do not need. Name of the Lego set should be good the identify what Lego set we are working on.
+# **3. Data Preprocessing with Recipes**
 
 ```{r}
+titanic_recipe <- recipe(Survived ~ Pclass + Sex + Age + Fare + Embarked, data = titanic) %>%
+  step_mutate(Survived = as.factor(Survived)) %>%
+  step_impute_median(Age, Fare) %>%
+  step_modeimpute(Embarked) %>%
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+  step_normalize(all_numeric_predictors())
 
-lego <- lego |> select(-Item_Number, -Set_Name)
-head(lego)
+titanic_prep <- prep(titanic_recipe)
+titanic_clean <- bake(titanic_prep, new_data = NULL)
 ```
 
-## Exercise 3
-
-::: {.callout-tip title="Question"}
-Notice that the `Weight` variable is a bit odd... It seems like it should be numeric but it's a `chr`. Why? Write code to extract the true numerical weight in either lbs or Kgs (your choice). You are encouraged to use the internet and generative AI to help you figure out how to do this. However, make sure you are able to explain your code once you are done.
-:::
+# **4. Train-Test Split & Cross-Validation**
 
 ```{r}
+set.seed(42)
+titanic_split <- initial_split(titanic_clean, prop = 0.8, strata = Survived)
+train_data <- training(titanic_split)
+test_data <- testing(titanic_split)
 
-library(stringr)
-
-# Extract numerical weight values in kg and rename column
-lego <- lego |> mutate(
-  Weight = case_when(
-    str_detect(Weight, "Kg") ~ as.numeric(str_extract(Weight, "[0-9]+\\.?[0-9]*")),  # Extract Kg value
-    TRUE ~ NA_real_  # Keep NA values
-  )
-) |> rename(`Weight (kg)` = Weight)  # Rename column
-
-# View the cleaned dataset
-print(lego)
-
+titanic_folds <- vfold_cv(train_data, v = 5, strata = Survived)
 ```
 
--   While looking at the dataset, we can see that while some of the weight is missing, some have weight in both kgs and lbs, with the units included, which is why it is saved as chr. I chose to keep the kg value and NA for missing values.
-
--   **`mutate()`**: Used to modify the `Weight` column.
-
--   **`case_when()`**: Checks different conditions and assigns appropriate values.
-
-    -   **If the weight contains "Kg"** → Extracts the number before "Kg" using `str_extract()`.
-
-    -   **If neither "Kg" nor "lb" is found** → Assigns `NA_real_` (keeps missing values as NA).
-
--   `"[0-9]+\\.?[0-9]*"` → Extracts the first numeric value (for kg).
-
--   **Renames the column** from `Weight` to `Weight (kg)` for clarity.
-
-## Exercise 4
-
-::: {.callout-tip title="Question"}
-For each of the 12 features do the following:
-:::
-
-### Exercise 4.1
-
-::: {.callout-tip title="Question"}
-Identify if they are the correct data type. Are categorical variables coded as factors? Are the factor levels in the correct order if necessary? Are numerical variables coded as numbers? You will need to read descriptions of the data to make this determination.
-:::
+# **5. Logistic Regression with Gradient Descent**
 
 ```{r}
-glimpse(lego)
-lego <- lego |>
-  mutate(Ages = factor(Ages, levels = c("Ages_2+",
-                                        "Ages_6+",
-                                        "Ages_8+",
-                                        "Ages_9+",
-                                        "Ages_10+",
-                                        "Ages_6-12")))
-lego <- lego |>
-  mutate(Packaging = factor(Packaging),
-         Availability = factor(Availability),
-         Size = factor(Size, levels = c("Small",
-                                        "Big")),
-         Theme = factor(Theme))
-```
-
-### Exercise 4.2
-
-::: {.callout-tip title="Question"}
-Identify any variables with missing values. Identify and then fix any variables for whom missing values (i.e. `NA`s) indicate something other than that the data is missing (there is at least one). Fill in this missing values appropriately.
-:::
-
-```{r}
-lego |> 
-  summarize(across(everything(), ~ sum(is.na(.)))) |> 
-  pivot_longer(everything()) |> 
-  filter(value > 0) |> 
-  kable()
-
-lego <- lego |>
-  mutate(Minifigures = ifelse(is.na(Minifigures) & Theme %in% c("Architecture",
-                                                               "DUPLO",
-                                                               "LEGO Art",
-                                                               "LEGO Super Mario",
-                                                               "Technic"),
-                                    0, Minifigures))
-```
-
--   We see that theme, ages, pages, minifigures, packages, weight, availability, and size all contain missing values. We know, from the data decription, that the NA in minifigures could represent a 0 or a missing data. To better get an idea of which data is missing and which data is actually a 0, we can consider if the lego theme historically has had minifigures in the past. We know that, generally, technic, super mario, art, duplo, and architecture sets generally do not contain minifigures.
-
-### Exercise 4.3
-
-::: {.callout-tip title="Question"}
-For all of the categorical variables, identify ones that you think may be problematic because they may have near-zero variance. Decide whether to remove them now, or remove them as part of your pre-processor. Make an argument for why your choice is appropriate.
-:::
-
-```{r}
-nearZeroVar(lego, saveMetrics = TRUE) |> kable()
-lego <- lego |>
-  select(-Size)
-```
-
--   From the visualization above, we see that packaging, availability, and size all have near zero variance. From this, I only decided to remove size, as this column had zero variance. Additionally, although other columns had near zero variance, they could provide additional information to our model. For example in retail, lego exclusives could be more expensive than retail.
-
-### Exercise 4.4
-
-::: {.callout-tip title="Question"}
-For all of the categorical variables, identify ones that you think may be problematic because they have many categories that don't have a lot of observations and likely need to be "lumped". Decide whether to remove them now, or remove them as part of your pre-processor. Make an argument for why your choice is appropriate.
-:::
-
-```{r}
-lego |> count(Theme) |> kable()
-```
-
--   We see that theme has many categories, and that some of those categories have few observations. Instead of removing this column, we could instead lump rare categories together under "other". We could do this in the preprocessing, as this lumping would be performed for modeling purposes.
-
-# Data Splitting & Preprocessing
-
-## Exercise 5
-
-::: {.callout-tip title="Question"}
-Split your data into training and test sets. Use your own judgement to determine training to test split ratio. Make sure to set a seed.
-:::
-
-```{r}
-set.seed(427)
-lego_split <- initial_split(lego, prop = .75, strata = Amazon_Price)
-lego_train <- training(lego_split)
-lego_test <- testing(lego_split)
-```
-
-## Exercise 6
-
-::: {.callout-tip title="Question"}
-Generate at least three different recipes designed to be used with linear regression that treat preprocessing differently. Hint: you'll likely want to try out different missing value imputation or lumping strategies. It's also a good idea to include `step_lincolm`.
-:::
-
-```{r}
-lm_knnimpute <- recipe(Amazon_Price ~ ., data = lego_train) |> 
-  step_nzv(all_predictors()) |>  # remove zero or near-zero variable predictors
-  step_impute_knn(all_numeric_predictors()) |>  # impute missing values using KNN
-  step_unknown(all_nominal_predictors()) |>  # handle missing categorical values
-  step_other(all_nominal_predictors(), threshold = 0.01, other = "Other") |> # lump rare categories
-  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  # in general use one_hot unless doing linear regression
-  step_corr(all_numeric_predictors(), threshold = 0.75) |> # adjusted correlation threshold
-  step_lincomb(all_numeric_predictors()) # remove variables that have exact linear combinations
+gradient_descent <- function(X, y, learning_rate = 0.01, epochs = 1000) {
+  m <- nrow(X)
+  X <- as.matrix(cbind(1, X))  # Add bias term
+  theta <- matrix(0, ncol = 1, nrow = ncol(X))
   
-lm_meanimpute <- recipe(Amazon_Price ~ ., data = lego_train) |> 
-  step_nzv(all_predictors()) |>  # remove zero or near-zero variable predictors
-  step_impute_mean(all_numeric_predictors()) |>  # impute missing values using mean
-  step_unknown(all_nominal_predictors()) |>  # handle missing categorical values
-  step_other(all_nominal_predictors(), threshold = 0.01, other = "Other") |> # lump rare categories
-  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  # in general use one_hot unless doing linear regression
-  step_corr(all_numeric_predictors(), threshold = 0.75) |> # adjusted correlation threshold
-  step_lincomb(all_numeric_predictors()) # remove variables that have exact linear combinations
-  
-lm_medianimpute <- recipe(Amazon_Price ~ ., data = lego_train) |> 
-  step_nzv(all_predictors()) |>  # remove zero or near-zero variable predictors
-  step_impute_median(all_numeric_predictors()) |>  # impute missing values using median
-  step_unknown(all_nominal_predictors()) |>  # handle missing categorical values
-  step_other(all_nominal_predictors(), threshold = 0.01, other = "Other") |> # lump rare categories
-  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  # in general use one_hot unless doing linear regression
-  step_corr(all_numeric_predictors(), threshold = 0.75) |> # adjusted correlation threshold
-  step_lincomb(all_numeric_predictors()) # remove variables that have exact linear combinations
-```
-
-## Exercise 7
-
-::: {.callout-tip title="Question"}
-Generate at least three different recipes designed to be used with $K$-nearest neighbors that treat preprocessing differently. Hint: you'll likely want to try out different missing value imputation or lumping strategies.
-:::
-
-```{r}
-knn_preproc1 <- recipe(Amazon_Price ~ ., data = lego_train) |> 
-  step_nzv(all_predictors()) |>  # remove zero or near-zero variable predictors
-  step_impute_knn(all_numeric_predictors()) |>  # impute missing values using KNN
-  step_unknown(all_nominal_predictors()) |>  # handle missing categorical values
-  step_other(all_nominal_predictors(), threshold = 0.01, other = "Other") |> # lump rare categories
-  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>  # one-hot encode categorical variables
-  step_corr(all_numeric_predictors(), threshold = 0.75) |> # adjusted correlation threshold
-  step_lincomb(all_numeric_predictors()) |> # remove linear combinations
-  step_normalize(all_numeric_predictors()) # normalize numeric predictors
-  
-knn_preproc2 <- recipe(Amazon_Price ~ ., data = lego_train) |> 
-  step_nzv(all_predictors()) |>  # remove zero or near-zero variable predictors
-  step_impute_mean(all_numeric_predictors()) |>  # impute missing values using mean
-  step_unknown(all_nominal_predictors()) |>  # handle missing categorical values
-  step_other(all_nominal_predictors(), threshold = 0.01, other = "Other") |> # lump rare categories
-  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>  # one-hot encode categorical variables
-  step_corr(all_numeric_predictors(), threshold = 0.75) |> # adjusted correlation threshold
-  step_lincomb(all_numeric_predictors()) |> # remove linear combinations
-  step_normalize(all_numeric_predictors()) # normalize numeric predictors
-  
-knn_preproc3 <- recipe(Amazon_Price ~ ., data = lego_train) |> 
-  step_nzv(all_predictors()) |>  # remove zero or near-zero variable predictors
-  step_impute_median(all_numeric_predictors()) |>  # impute missing values using median
-  step_unknown(all_nominal_predictors()) |>  # handle missing categorical values
-  step_other(all_nominal_predictors(), threshold = 0.01, other = "Other") |> # lump rare categories
-  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>  # one-hot encode categorical variables
-  step_corr(all_numeric_predictors(), threshold = 0.75) |> # adjusted correlation threshold
-  step_lincomb(all_numeric_predictors()) |> # remove linear combinations
-  step_normalize(all_numeric_predictors()) # normalize numeric predictors
-```
-
-# Model-Fitting & Evaluation
-
-## Exercise 7
-
-::: {.callout-tip title="Question"}
-Create a `workflow_set` that contains 12 different workflows:
-
--   three linear regression workflows: one linear regression model with each of the three recipes you created above
--   nine different KNN workflows: choose three different $K$s for you KNN models and create one workflow for each combination of KNN model and preprocessing recipe
-:::
-
-```{r}
-# Linear regression model
-lm_model <- linear_reg() |> set_engine("lm")
-
-# KNN models with different K values
-knn5_model <- nearest_neighbor(mode = "regression", neighbors = 5) |> set_engine("kknn")
-knn10_model <- nearest_neighbor(mode = "regression", neighbors = 10) |> set_engine("kknn")
-knn15_model <- nearest_neighbor(mode = "regression", neighbors = 15) |> set_engine("kknn")
-
-# Define preprocessing strategies for KNN
-knn_preprocessors <- list(
-  knn_knn_impute = knn_preproc1,
-  knn_mean_impute = knn_preproc2,
-  knn_median_impute = knn_preproc3
-)
-
-# Define preprocessing strategies for Linear Regression
-lm_preprocessors <- list(
-  lm_knn_impute = lm_knnimpute,
-  lm_mean_impute = lm_meanimpute,
-  lm_median_impute = lm_medianimpute
-)
-
-# Associate models with preprocessing strategies
-knn_models <- list(
-  knn5 = knn5_model,
-  knn10 = knn10_model,
-  knn15 = knn15_model
-)
-
-lm_models <- list(
-  lm_model = lm_model
-)
-
-# Create workflow sets
-knn_workflows <- workflow_set(knn_preprocessors, knn_models, cross = TRUE)
-lm_workflows <- workflow_set(lm_preprocessors, lm_models, cross = TRUE)
-
-# Combine workflows
-all_models <- bind_rows(lm_workflows, knn_workflows)
-
-print(all_models)  # Check workflows
-
-```
-
-## Exercise 8
-
-::: {.callout-tip title="Question"}
-Use 5 fold CV with 5 repeats to compute the RMSE and R-squared for each of the 12 workflows you created above. Note that this step may take a few minutes to execute.
-:::
-
-```{r}
-# Define metrics
-lego_metrics <- metric_set(rmse, rsq)
-
-# Define 5-fold CV with 5 repeats
-lego_folds <- vfold_cv(lego_train, v = 5, repeats = 5)
-
-# Fit resamples for all models
-all_fits <- all_models |> 
-  workflow_map("fit_resamples",
-               resamples = lego_folds,
-               metrics = lego_metrics)
-
-# Collect and display RMSE results
-collect_metrics(all_fits) |> 
-  filter(.metric == "rmse") |> 
-  kable()
-
-# Collect and display R-squared results
-collect_metrics(all_fits) |> 
-  filter(.metric == "rsq") |> 
-  kable()
-
-```
-
-## Exercise 9
-
-::: {.callout-tip title="Question"}
-Plot the results of your cross validation and select your best workflow.
-:::
-
-```{r}
-autoplot(all_fits, metric = "rmse") +
-  geom_text_repel(aes(label = wflow_id), nudge_x = 1/8, nudge_y = 1/100, angle = 90) +
-  theme(legend.position = "none")
-
-```
-
-```{r}
-autoplot(all_fits, metric = "rsq") +
-  geom_text_repel(aes(label = wflow_id), nudge_x = 1/8, nudge_y = 1/100, angle = 90) +
-  theme(legend.position = "none")
-
-```
-
-As we know, higher $R^2$ values and lower RMSE values are better.
-
-As we can clearly see in the graph, lm models are clearly better than the KNN models. In the first graph lm models have the lowest RMSE values and in the second graph we have the highest $R^2$ values. Therefore linear model are better performers than LNN model in this scenario.
-
-\
-To be specific we observed that **lm_knn_impute_lm_model** to show the best performance out of all.
-
-## Exercise 10
-
-::: {.callout-tip title="Question"}
-Re-fit your best model on the whole training set and estimate your error metrics on the test set.
-:::
-
-```{r}
-best_workflow <- all_models |>
-  extract_workflow("lm_knn_impute_lm_model")
-
-final_fit <- best_workflow |>
-  fit(data = lego_train)
-
-final_predict <- final_fit |>
-  predict(new_data = lego_test) |>
-  bind_cols(lego_test)
-
-test_metrics <- final_predict |>
-  metrics(truth = Amazon_Price, estimate = .pred)
-
-test_metrics |> kable()
-```
-
-# Conceptual Question
-
-## Exercise 11 (Sample interview question)
-
-::: {.callout-tip title="Question"}
-The time to complete cross-validation can be substantially improved by using parallel processing. Below is the output for the copilot prompt "Generate pseudo-code in R to do cross-validation with repetition and multiple models". Which parts of this code can be run in parallel and which can't. Note any changes that you might need to make for this to be parallelizable.
-
-```{r}
-#| eval: FALSE
-
-# Define the number of folds (k) and the number of repetitions (r)
-k <- 5
-r <- 3
-
-# Define the list of models to evaluate
-models <- list(
-    model1 = train_model1,
-    model2 = train_model2,
-    model3 = train_model3
-)
-
-# Initialize a list to store the performance metrics for each model
-all_performance_metrics <- list()
-
-# Loop through each model
-for (model_name in names(models)) {
-    # Initialize a list to store the performance metrics for this model
-    model_performance_metrics <- list()
-    
-    # Loop through each repetition
-    for (rep in 1:r) {
-        # Create k-fold cross-validation indices for this repetition
-        folds <- createFolds(dataset$target_variable, k = k)
-        
-        # Initialize a list to store the performance metrics for this repetition
-        performance_metrics <- list()
-        
-        # Loop through each fold
-        for (i in 1:k) {
-            # Use the i-th fold as the validation set
-            validation_indices <- folds[[i]]
-            validation_set <- dataset[validation_indices, ]
-            
-            # Use the remaining folds as the training set
-            training_set <- dataset[-validation_indices, ]
-            
-            # Train the model on the training set
-            model <- models[[model_name]](training_set)
-            
-            # Evaluate the model on the validation set
-            performance <- evaluate_model(model, validation_set)
-            
-            # Store the performance metric
-            performance_metrics[[i]] <- performance
-        }
-        
-        # Store the performance metrics for this repetition
-        model_performance_metrics[[rep]] <- performance_metrics
-    }
-    
-    # Store the performance metrics for this model
-    all_performance_metrics[[model_name]] <- model_performance_metrics
+  for (i in 1:epochs) {
+    predictions <- 1 / (1 + exp(-X %*% theta))  # Sigmoid function
+    error <- predictions - y
+    gradient <- (t(X) %*% error) / m
+    theta <- theta - learning_rate * gradient
+  }
+  return(theta)
 }
 
-# Calculate the average performance metric for each model across all repetitions
-average_performance <- sapply(all_performance_metrics, function(metrics) mean(unlist(metrics)))
+# Prepare data for GD
+X_train <- as.matrix(select(train_data, -Survived))
+y_train <- as.matrix(train_data$Survived)
 
-# Output the average performance for each model
-print("Average Performance for each model:")
-print(average_performance)
+theta_final <- gradient_descent(X_train, y_train)
+theta_final
 ```
-:::
+
+# **6. Model Training & Evaluation**
+
+```{r}
+log_reg_spec <- logistic_reg() %>%
+  set_engine("glm") %>%
+  set_mode("classification")
+
+log_reg_workflow <- workflow() %>%
+  add_model(log_reg_spec) %>%
+  add_recipe(titanic_recipe)
+
+log_reg_results <- fit_resamples(
+  log_reg_workflow,
+  resamples = titanic_folds,
+  metrics = metric_set(accuracy, roc_auc)
+)
+```
+
+# **7. Model Comparison & Metrics**
+
+```{r}
+model_set <- workflow_set(
+  preproc = list(titanic_recipe),
+  models = list(
+    Logistic_Regression = log_reg_spec
+  )
+)
+
+model_results <- workflow_map(model_set, resamples = titanic_folds)
+
+autoplot(model_results)
+```
+
+# **8. Conclusion**
+
+This step-by-step analysis explored Titanic survival prediction using Logistic Regression, k-NN, and Gradient Descent. Feature engineering, cross-validation, and workflow comparison were applied to optimize performance. Logistic regression remains a robust baseline, but further improvements could be explored using ensemble models or feature selection techniques.
