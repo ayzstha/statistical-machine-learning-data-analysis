@@ -75,11 +75,13 @@ titanic <- titanic |>
     Embarked = if_else(is.na(Embarked), "S", Embarked),  # Fill missing with most common
     Embarked = as_factor(Embarked),
     Has_Cabin = if_else(is.na(Cabin), 0, 1),  # Binary cabin feature
-    Ticket = NULL # Dropped due to inconsistencies
-)
+    Age = if_else(is.na(Age), median(Age, na.rm = TRUE), Age) # Impute missing Age
+  ) |> 
+  select(-Name, -Ticket, -Cabin)  # Remove Name, Cabin and Ticket columns
+
 ```
 
-To preprocess the Titanic dataset effectively, we first converted categorical variables like `Survived`, `Pclass`, `Sex`, and `Embarked` into factors to ensure proper handling by machine learning models. Since `Pclass` represents an ordinal variable, we explicitly labeled its levels for better interpretability. Missing values in `Embarked` were replaced with the most common value, while `Cabin`, which had too many missing entries, was transformed into a binary `Has_Cabin` feature instead of direct imputation. The `Ticket` column, being highly inconsistent with mixed formats, was dropped as it lacked immediate predictive value.
+To preprocess the Titanic dataset effectively, we first converted categorical variables like `Survived`, `Pclass`, `Sex`, and `Embarked` into factors to ensure proper handling by machine learning models. Since `Pclass` represents an ordinal variable, we explicitly labeled its levels for better interpretability. Missing values in `Embarked` were replaced with the most common value, while `Cabin`, which had too many missing entries, was transformed into a binary `Has_Cabin` feature instead of direct imputation. The `Ticket` column, being highly inconsistent with mixed formats, was dropped as it lacked immediate predictive value. `Name` is also dropped because there are already other identifiers who do the same job. Finally, `Cabin` is also dropped since it doesn't necessarily add anything since we already have `Pclass` which is more valuable for us.
 
 Further, missing values in `Age` and `Fare` will be handled in the preprocessing stage through imputation techniques to maintain data integrity.
 
@@ -130,9 +132,9 @@ knn10_model <- nearest_neighbor(neighbors = 10) |>
   set_mode("classification")
 ```
 
-Since I am predicting Survived, which is a binary classification problem, my models are set to `"classification"` mode rather than `"regression"`.
+Here, I have defined three models: Logistic Regression Model, Linear Regression Model and K-Nearest Neighbours (k =5 and k = 10). Since I am predicting Survived, which is a binary classification problem, my models are set to `"classification"` mode rather than `"regression"`.
 
-Now let us preprocess our data using recipes.
+Now, let us preprocess our data using recipes.
 
 # **6. Preprocessing data using Recipes**
 
@@ -140,7 +142,8 @@ Now let us preprocess our data using recipes.
 # Logistic Regression - Mean Imputation
 logreg_meanimpute <- recipe(Survived ~ ., data = train_data) |> 
   step_nzv(all_predictors()) |>  
-  step_impute_mean(all_numeric_predictors()) |>  
+  step_zv(all_predictors()) |>
+  step_impute_mean(all_numeric_predictors()) |>
   step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
   step_corr(all_numeric_predictors(), threshold = 0.5) |>  
   step_lincomb(all_numeric_predictors())  
@@ -148,6 +151,7 @@ logreg_meanimpute <- recipe(Survived ~ ., data = train_data) |>
 # Logistic Regression - Median Imputation
 logreg_medianimpute <- recipe(Survived ~ ., data = train_data) |> 
   step_nzv(all_predictors()) |>  
+  step_zv(all_predictors()) |>
   step_impute_median(all_numeric_predictors()) |>  
   step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
   step_corr(all_numeric_predictors(), threshold = 0.5) |>  
@@ -155,7 +159,8 @@ logreg_medianimpute <- recipe(Survived ~ ., data = train_data) |>
 
 # Logistic Regression - KNN Imputation
 logreg_knnimpute <- recipe(Survived ~ ., data = train_data) |> 
-  step_nzv(all_predictors()) |>  
+  step_nzv(all_predictors()) |> 
+  step_zv(all_predictors()) |>
   step_impute_knn(all_numeric_predictors()) |>  
   step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
   step_corr(all_numeric_predictors(), threshold = 0.5) |>  
@@ -164,6 +169,7 @@ logreg_knnimpute <- recipe(Survived ~ ., data = train_data) |>
 # KNN Classification - Mean Imputation
 knn_meanimpute <- recipe(Survived ~ ., data = train_data) |> 
   step_nzv(all_predictors()) |>  
+  step_zv(all_predictors()) |>
   step_impute_mean(all_numeric_predictors()) |>  
   step_dummy(all_nominal_predictors(), one_hot = TRUE) |>  
   step_corr(all_numeric_predictors(), threshold = 0.5) |>  
@@ -172,6 +178,7 @@ knn_meanimpute <- recipe(Survived ~ ., data = train_data) |>
 # KNN Classification - Median Imputation
 knn_medianimpute <- recipe(Survived ~ ., data = train_data) |> 
   step_nzv(all_predictors()) |>  
+  step_zv(all_predictors()) |>
   step_impute_median(all_numeric_predictors()) |>  
   step_dummy(all_nominal_predictors(), one_hot = TRUE) |>  
   step_corr(all_numeric_predictors(), threshold = 0.5) |>  
@@ -180,6 +187,7 @@ knn_medianimpute <- recipe(Survived ~ ., data = train_data) |>
 # KNN Classification - KNN Imputation
 knn_knnimpute <- recipe(Survived ~ ., data = train_data) |> 
   step_nzv(all_predictors()) |>  
+  step_zv(all_predictors()) |>
   step_impute_knn(all_numeric_predictors()) |>  
   step_dummy(all_nominal_predictors(), one_hot = TRUE) |>  
   step_corr(all_numeric_predictors(), threshold = 0.5) |>  
@@ -187,7 +195,8 @@ knn_knnimpute <- recipe(Survived ~ ., data = train_data) |>
 
 # Linear Regression - Mean Imputation
 lm_meanimpute <- recipe(Survived ~ ., data = train_data) |> 
-  step_nzv(all_predictors()) |>  
+  step_nzv(all_predictors()) |> 
+  step_zv(all_predictors()) |>
   step_impute_mean(all_numeric_predictors()) |>  
   step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
   step_corr(all_numeric_predictors(), threshold = 0.5) |>  
@@ -195,7 +204,8 @@ lm_meanimpute <- recipe(Survived ~ ., data = train_data) |>
 
 # Linear Regression - Median Imputation
 lm_medianimpute <- recipe(Survived ~ ., data = train_data) |> 
-  step_nzv(all_predictors()) |>  
+  step_nzv(all_predictors()) |> 
+  step_zv(all_predictors()) |>
   step_impute_median(all_numeric_predictors()) |>  
   step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
   step_corr(all_numeric_predictors(), threshold = 0.5) |>  
@@ -204,6 +214,7 @@ lm_medianimpute <- recipe(Survived ~ ., data = train_data) |>
 # Linear Regression - KNN Imputation
 lm_knnimpute <- recipe(Survived ~ ., data = train_data) |> 
   step_nzv(all_predictors()) |>  
+  step_zv(all_predictors()) |>
   step_impute_knn(all_numeric_predictors()) |>  
   step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
   step_corr(all_numeric_predictors(), threshold = 0.5) |>  
@@ -211,7 +222,7 @@ lm_knnimpute <- recipe(Survived ~ ., data = train_data) |>
 
 ```
 
-With this, each model has three versions of preprocessing using KNN, Mean and Median. However, this is looking a bit too messy. To organize everything for my sake and yours, I will arrange this into model lists and workflow sets.
+With this, each model has three versions of preprocessing using KNN, Mean and Median. However, this looks a bit too messy and all over the place. To organize everything for my sake and yours, I will arrange this into model lists and workflow sets.
 
 # **7. Model lists and Workflow Sets**
 
@@ -274,62 +285,48 @@ all_models
 
 ```
 
-# **5. Logistic Regression with Gradient Descent**
+Now everything looks very organized and put together, much like the Titanic in its early hours. Now we have 12 components to look at. Let's collect metrics and create a plot to better understand our preprocessing.
 
 ```{r}
-gradient_descent <- function(X, y, learning_rate = 0.01, epochs = 1000) {
-  m <- nrow(X)
-  X <- as.matrix(cbind(1, X))  # Add bias term
-  theta <- matrix(0, ncol = 1, nrow = ncol(X))
-  
-  for (i in 1:epochs) {
-    predictions <- 1 / (1 + exp(-X %*% theta))  # Sigmoid function
-    error <- predictions - y
-    gradient <- (t(X) %*% error) / m
-    theta <- theta - learning_rate * gradient
-  }
-  return(theta)
-}
+valid_fits <- all_fits %>%
+  filter(map_lgl(result, ~ length(.x) > 0))
 
-# Prepare data for GD
-X_train <- as.matrix(select(train_data, -Survived))
-y_train <- as.matrix(train_data$Survived)
+collect_metrics(valid_fits)
 
-theta_final <- gradient_descent(X_train, y_train)
-theta_final
 ```
 
-# **6. Model Training & Evaluation**
+# **8. Metrics and Plotting**
 
 ```{r}
-log_reg_spec <- logistic_reg() |>
-  set_engine("glm") |>
-  set_mode("classification")
+# Define classification and regression metrics
+titanic_class_metrics <- metric_set(accuracy, roc_auc)
+titanic_reg_metrics <- metric_set(rmse, rsq)
 
-log_reg_workflow <- workflow() |>
-  add_model(log_reg_spec) |>
-  add_recipe(titanic_recipe)
+# Fit resamples using cross-validation
+all_fits <- all_models |> 
+  workflow_map("fit_resamples",
+               resamples = titanic_folds,
+               metrics = titanic_class_metrics) # Use titanic_reg_metrics for LM
 
-log_reg_results <- fit_resamples(
-  log_reg_workflow,
-  resamples = titanic_folds,
-  metrics = metric_set(accuracy, roc_auc)
-)
-```
+# Plot Accuracy for Classification Models
+autoplot(all_fits, metric = "accuracy") +
+  geom_text_repel(aes(label = wflow_id), nudge_x = 1/8, nudge_y = 1/100) +
+  theme(legend.position = "none")
 
-# **7. Model Comparison & Metrics**
+# Plot AUC for Classification Models
+autoplot(all_fits, metric = "roc_auc") +
+  geom_text_repel(aes(label = wflow_id), nudge_x = 1/8, nudge_y = 1/100) +
+  theme(legend.position = "none")
 
-```{r}
-model_set <- workflow_set(
-  preproc = list(titanic_recipe),
-  models = list(
-    Logistic_Regression = log_reg_spec
-  )
-)
+# Plot RMSE for Regression Models
+autoplot(all_fits, metric = "rmse") +
+  geom_text_repel(aes(label = wflow_id), nudge_x = 1/8, nudge_y = 1/100) +
+  theme(legend.position = "none")
 
-model_results <- workflow_map(model_set, resamples = titanic_folds)
-
-autoplot(model_results)
+# Plot R-squared for Regression Models
+autoplot(all_fits, metric = "rsq") +
+  geom_text_repel(aes(label = wflow_id), nudge_x = 1/8, nudge_y = 1/100) +
+  theme(legend.position = "none")
 ```
 
 # **8. Conclusion**
