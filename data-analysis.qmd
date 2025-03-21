@@ -20,6 +20,9 @@ library(tidyverse)
 library(tidymodels)
 library(knitr)
 
+# Avoid any problems
+tidymodels_prefer()
+
 # Load Titanic dataset
 titanic <- read.csv("titanic.csv")
 
@@ -28,16 +31,15 @@ glimpse(titanic)
 summary(titanic)
 ```
 
-### **Why?**
+The first step in data analysis is to actually load the data which is done with this step. I will also load all the libraries that are needed for this project to avoid redundancy. Let's also analyze the summary and see if there is anything meaningful here.
 
--   `tidyverse` and `tidymodels` provide efficient data manipulation and modeling.
--   `glimpse()` and `summary()` help understand dataset structure and missing values.
+The Titanic dataset contains 891 passenger records, with `Survived` as the target variable (0 = did not survive, 1 = survived). The dataset includes numerical and categorical features such as `Pclass` (passenger class), `Age` (ranging from 0.42 to 80, with 177 missing values), `Fare` (ranging from 0 to 512.33), and `SibSp`/`Parch` (family aboard). Most passengers traveled alone, and survival rates indicate class-based disparities. Proper data preprocessing, including handling missing values and encoding categorical variables, is essential before model training.
 
 # **2. Exploratory Data Analysis (EDA)**
 
 ```{r}
 # Check missing values
-titanic %>% summarise(across(everything(), ~sum(is.na(.))))
+titanic |> summarise(across(everything(), ~sum(is.na(.))))
 
 # Visualizing survival rate
 ggplot(titanic, aes(x = Survived)) +
@@ -58,34 +60,218 @@ ggplot(titanic, aes(x = Pclass, fill = factor(Survived))) +
   labs(title = "Survival by Passenger Class", x = "Pclass", y = "Count")
 ```
 
-### **Why?**
+We understand a lot from these simple graphs. If we ignore some errors within the data, which we will address in our next step, we see that a lot more people did not survive as compared to those who did. If we dive deeper (no pun intended), we can also see that middle-aged people within the age of 20-40 had the highest chance of survival when compared to other ages. Another interesting yet not shocking graph reveals that the lowest third class passengers had the highest number of people who did not survive.
 
--   Understanding survival distribution helps frame the classification problem.
--   Age and class distributions reveal potential predictor importance.
+These simple yet effective graphs along with the summary give us a lot to work with but also highlight that there are a few anomalies within the data that need addressing. This is why we preprocess our data in the next step.
 
-# **3. Data Preprocessing with Recipes**
+# **3. Clean Data**
 
 ```{r}
-titanic_recipe <- recipe(Survived ~ Pclass + Sex + Age + Fare + Embarked, data = titanic) %>%
-  step_mutate(Survived = as.factor(Survived)) %>%
-  step_impute_median(Age, Fare) %>%
-  step_modeimpute(Embarked) %>%
-  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
-  step_normalize(all_numeric_predictors())
-
-titanic_prep <- prep(titanic_recipe)
-titanic_clean <- bake(titanic_prep, new_data = NULL)
+titanic <- titanic |> 
+  mutate(
+    Survived = as_factor(Survived),
+    Pclass = factor(Pclass, levels = c(1, 2, 3), labels = c("First", "Second", "Third")),
+    Sex = as_factor(Sex),
+    Embarked = if_else(is.na(Embarked), "S", Embarked),  # Fill missing with most common
+    Embarked = as_factor(Embarked),
+    Has_Cabin = if_else(is.na(Cabin), 0, 1),  # Binary cabin feature
+    Ticket = NULL # Dropped due to inconsistencies
+)
 ```
+
+To preprocess the Titanic dataset effectively, we first converted categorical variables like `Survived`, `Pclass`, `Sex`, and `Embarked` into factors to ensure proper handling by machine learning models. Since `Pclass` represents an ordinal variable, we explicitly labeled its levels for better interpretability. Missing values in `Embarked` were replaced with the most common value, while `Cabin`, which had too many missing entries, was transformed into a binary `Has_Cabin` feature instead of direct imputation. The `Ticket` column, being highly inconsistent with mixed formats, was dropped as it lacked immediate predictive value.
+
+Further, missing values in `Age` and `Fare` will be handled in the preprocessing stage through imputation techniques to maintain data integrity.
+
+I'm also imputing missing values in the `Age` column using the median to make things slightly simpler for myself instead of using model based imputation.
+
+The next step is to split our data into training data and test data.
 
 # **4. Train-Test Split & Cross-Validation**
 
 ```{r}
-set.seed(42)
-titanic_split <- initial_split(titanic_clean, prop = 0.8, strata = Survived)
+set.seed (401)
+# "The Titanic is associated with the number 401 because that was the yard number assigned to the ship by its builders, Harland and Wolff". Just thought this was a fun seed number!
+
+titanic_split <- initial_split(titanic, prop = 0.8, strata = Survived)
 train_data <- training(titanic_split)
 test_data <- testing(titanic_split)
 
-titanic_folds <- vfold_cv(train_data, v = 5, strata = Survived)
+
+titanic_folds <- vfold_cv(train_data, v = 10, strata = Survived, repeats = 10)
+```
+
+We set the seed to 401 as a nod to the Titanic's yard number. The dataset is split into an 80-20 train-test split while preserving the class distribution of `Survived` using stratification.
+
+To improve model reliability, we also apply 10-fold cross-validation with 10 repeats on the training data, ensuring robust performance evaluation by reducing variance in model assessment.
+
+Our next step will be to define our required models.
+
+# **5. Define our models**
+
+```{r}
+# Logistic Regression Model
+log_reg_model <- logistic_reg() |>
+  set_engine("glm") |>
+  set_mode("classification")
+
+# Linear Regression (for potential numerical analysis, not classification)
+lm_model <- linear_reg() |> 
+  set_engine("lm")
+
+# K-Nearest Neighbors (5 neighbors)
+knn5_model <- nearest_neighbor(neighbors = 5) |>
+  set_engine("kknn") |>
+  set_mode("classification")
+
+# K-Nearest Neighbors (10 neighbors)
+knn10_model <- nearest_neighbor(neighbors = 10) |>
+  set_engine("kknn") |>
+  set_mode("classification")
+```
+
+Since I am predicting Survived, which is a binary classification problem, my models are set to `"classification"` mode rather than `"regression"`.
+
+Now let us preprocess our data using recipes.
+
+# **6. Preprocessing data using Recipes**
+
+```{r}
+# Logistic Regression - Mean Imputation
+logreg_meanimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |>  
+  step_impute_mean(all_numeric_predictors()) |>  
+  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
+  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_lincomb(all_numeric_predictors())  
+
+# Logistic Regression - Median Imputation
+logreg_medianimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |>  
+  step_impute_median(all_numeric_predictors()) |>  
+  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
+  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_lincomb(all_numeric_predictors())  
+
+# Logistic Regression - KNN Imputation
+logreg_knnimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |>  
+  step_impute_knn(all_numeric_predictors()) |>  
+  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
+  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_lincomb(all_numeric_predictors())  
+
+# KNN Classification - Mean Imputation
+knn_meanimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |>  
+  step_impute_mean(all_numeric_predictors()) |>  
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>  
+  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_lincomb(all_numeric_predictors())  
+
+# KNN Classification - Median Imputation
+knn_medianimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |>  
+  step_impute_median(all_numeric_predictors()) |>  
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>  
+  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_lincomb(all_numeric_predictors())  
+
+# KNN Classification - KNN Imputation
+knn_knnimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |>  
+  step_impute_knn(all_numeric_predictors()) |>  
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>  
+  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_lincomb(all_numeric_predictors())  
+
+# Linear Regression - Mean Imputation
+lm_meanimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |>  
+  step_impute_mean(all_numeric_predictors()) |>  
+  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
+  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_lincomb(all_numeric_predictors())  
+
+# Linear Regression - Median Imputation
+lm_medianimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |>  
+  step_impute_median(all_numeric_predictors()) |>  
+  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
+  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_lincomb(all_numeric_predictors())  
+
+# Linear Regression - KNN Imputation
+lm_knnimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |>  
+  step_impute_knn(all_numeric_predictors()) |>  
+  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
+  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_lincomb(all_numeric_predictors())  
+
+```
+
+With this, each model has three versions of preprocessing using KNN, Mean and Median. However, this is looking a bit too messy. To organize everything for my sake and yours, I will arrange this into model lists and workflow sets.
+
+# **7. Model lists and Workflow Sets**
+
+```{r}
+# Logistic Regression Preprocessors
+logreg_preprocessors <- list(
+  logreg_knn_impute = logreg_knnimpute,
+  logreg_mean_impute = logreg_meanimpute,
+  logreg_median_impute = logreg_medianimpute
+)
+
+# KNN Classification Preprocessors
+knn_preprocessors <- list(
+  knn_knn_impute = knn_knnimpute,
+  knn_mean_impute = knn_meanimpute,
+  knn_median_impute = knn_medianimpute
+)
+
+# Linear Regression Preprocessors
+lm_preprocessors <- list(
+  lm_knn_impute = lm_knnimpute,
+  lm_mean_impute = lm_meanimpute,
+  lm_median_impute = lm_medianimpute
+)
+
+# Logistic Regression Model
+logreg_models <- list(
+  logreg_model = logistic_reg() |> 
+    set_engine("glm") |> 
+    set_mode("classification")
+)
+
+# KNN Models with different k values
+knn_models <- list(
+  knn5 = nearest_neighbor(neighbors = 5) |> 
+    set_engine("kknn") |> 
+    set_mode("classification"),
+  
+  knn10 = nearest_neighbor(neighbors = 10) |> 
+    set_engine("kknn") |> 
+    set_mode("classification")
+)
+
+# Linear Regression Model
+lm_models <- list(
+  lm_model = linear_reg() |> 
+    set_engine("lm")
+)
+
+# Create workflow sets for each model type
+logreg_workflows <- workflow_set(logreg_preprocessors, logreg_models, cross = TRUE)
+knn_workflows <- workflow_set(knn_preprocessors, knn_models, cross = TRUE)
+lm_workflows <- workflow_set(lm_preprocessors, lm_models, cross = TRUE)
+
+# Combine all workflow sets
+all_models <- bind_rows(logreg_workflows, knn_workflows, lm_workflows)
+
+# Print workflow set
+all_models
+
 ```
 
 # **5. Logistic Regression with Gradient Descent**
@@ -116,12 +302,12 @@ theta_final
 # **6. Model Training & Evaluation**
 
 ```{r}
-log_reg_spec <- logistic_reg() %>%
-  set_engine("glm") %>%
+log_reg_spec <- logistic_reg() |>
+  set_engine("glm") |>
   set_mode("classification")
 
-log_reg_workflow <- workflow() %>%
-  add_model(log_reg_spec) %>%
+log_reg_workflow <- workflow() |>
+  add_model(log_reg_spec) |>
   add_recipe(titanic_recipe)
 
 log_reg_results <- fit_resamples(
