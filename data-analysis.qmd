@@ -5,17 +5,90 @@ editor: visual
 format:
   html:
     embed-resources: true
+execute:
+
+  error: false
+  warning: false
 ---
 
 # **Introduction** 
 
-The Titanic dataset from Kaggle (<https://www.kaggle.com/datasets/yasserh/titanic-dataset>) is a fascinating window into one of history's most famous maritime disasters. This is a widely used dataset, often used for classification problems. It contains detailed information about passengers on the RMS Titanic, including attributes such as **age, gender, ticket class, fare, and survival status**. The goal of this project is to analyze models with survival status as the target variable. I will apply techniques such as logistic regression, k-nearest neighbors (KNN), gradient descent, and multiple linear regression while incorporating essential machine learning practices like cross-validation, hyperparameter tuning, and model evaluation. I will also conduct exploratory data analysis (EDA) to identify trends and patterns within the dataset, to make sure that our models are built on meaningful insights.
+The Titanic dataset from Kaggle (<https://www.kaggle.com/datasets/yasserh/titanic-dataset>) is a fascinating window into one of history's most famous maritime disasters. This is a widely used dataset, often used for classification problems. It contains detailed information about passengers on the RMS Titanic. The goal of this project is to analyze models with survival status as the target variable. I will apply techniques such as logistic regression, k-nearest neighbors (KNN), gradient descent, and multiple linear regression while incorporating essential machine learning practices like cross-validation, hyperparameter tuning, and model evaluation. I will also conduct exploratory data analysis (EDA) to identify trends and patterns within the dataset, to make sure that our models are built on meaningful insights.
 
 Beyond predictive modeling, this project reflects key responsibilities in a professional data science role. The workflow includes collecting, cleaning, and analyzing data, ensuring data accuracy and integrity, and developing visual reports and dashboards to track model performance. The ability to identify trends, anomalies, and key relationships within the data is crucial for making informed decisions. This analysis relies on industry-standard tools in R, using tidyverse for data manipulation and visualization and tidymodels for machine learning workflows. A strong grasp of statistical inference, regression and classification models, preprocessing, feature engineering, and model evaluation is necessary for building interpretable models. By following a structured and methodical approach, this project not only enhances my technical expertise but also reinforces best practices in data science and machine learning.
+
+# **Dataset Variables**
+
+-   **PassengerId**: A unique identifier assigned to each passenger. This is a sequential numerical value without predictive significance.
+
+<!-- -->
+
+-   **Survived**: The target variable we aim to predict. It's a binary indicator where 0 represents a passenger who perished and 1 represents a survivor.
+
+<!-- -->
+
+-   **Pclass**: Passenger class, serving as a socio-economic status proxy. It has three possible values:
+
+    -   1 = First class (Upper)
+
+    -   2 = Second class (Middle)
+
+    -   3 = Third class (Lower)
+
+<!-- -->
+
+-   **Name**: The passenger's full name, which might contain titles that indicate social status, age, or marital status (e.g., Mr., Mrs., Master, Miss).
+
+<!-- -->
+
+-   **Sex**: Gender of the passenger, recorded as "male" or "female".
+
+<!-- -->
+
+-   **Age**: The passenger's age in years. This variable contains approximately 177 missing values in our dataset.
+
+<!-- -->
+
+-   **SibSp**: Number of siblings or spouses aboard the Titanic. This family relation variable counts:
+
+    -   Siblings: brothers, sisters
+
+    -   Spouses: husbands, wives (mistresses and fiancés were not counted)
+
+<!-- -->
+
+-   **Parch**: Number of parents or children aboard the Titanic. This family relation variable counts:
+
+    -   Parents: mother, father
+
+    -   Children: daughter, son, including stepchildren
+
+<!-- -->
+
+-   **Ticket**: Ticket number, which might contain alphabetic prefixes or be purely numerical.
+
+<!-- -->
+
+-   **Fare**: The amount paid for the passenger's ticket, measured in British pounds. Values range from free passage to over £500.
+
+<!-- -->
+
+-   **Cabin**: The cabin number where the passenger stayed. This variable has a high proportion of missing values, as cabin information was not recorded for many passengers.
+
+<!-- -->
+
+-   **Embarked**: Port of embarkation, indicating where the passenger boarded the Titanic:
+
+    -   C = Cherbourg, France
+
+    -   Q = Queenstown, Ireland (now Cobh)
+
+    -   S = Southampton, England
 
 # **1. Loading Libraries and Data**
 
 ```{r}
+
 # Load Required Libraries
 library(tidyverse)
 library(tidymodels)
@@ -296,27 +369,25 @@ all_fits <- all_models |>
 collect_metrics(all_fits)
 
 # Plot Accuracy for Classification Models
-autoplot(all_fits, rank_metric = "accuracy") +
+autoplot(all_fits, metric = "accuracy") +
   geom_text_repel(aes(label = wflow_id), nudge_x = 1/8, nudge_y = 1/100) +
   theme(legend.position = "none")
 
 # Plot AUC for Classification Models
-autoplot(all_fits, rank_metric = "roc_auc") +
+autoplot(all_fits, metric = "roc_auc") +
   geom_text_repel(aes(label = wflow_id), nudge_x = 1/8, nudge_y = 1/100) +
   theme(legend.position = "none")
 ```
 
-Please be patient for this step, the Titanic wasn't built in a day.
+(If you're rendering this yourself, please be patient for this step, the Titanic wasn't built in a day.)
 
-Now for the exciting part, we will train and evaluate our models. Using the power of `workflow_map()`, I've fit all 9 model configurations across our 10-fold cross-validation with 10 repeats, effectively evaluating each model 100 times. This comprehensive approach gives us extremely reliable performance estimates.
+Now comes the exciting part - training and evaluating our models across multiple configurations. Using `workflow_map()`, I've fit all 9 model configurations across our 10-fold cross-validation with 10 repeats, effectively evaluating each model 100 times. This comprehensive approach provides extremely reliable performance estimates.
 
-I've focused on two key metrics:
+Looking at the accuracy plot, we can see clear performance differences. The KNN models with k=10 using mean and median imputation (specifically `knn_mean_impute_knn10` and `knn_median_impute_knn10`) achieve the highest accuracy scores around 80-81%. This suggests these configurations are classifying passengers with the greatest overall correctness.
 
--   Accuracy: the proportion of correct predictions
+The ROC AUC visualization tells a more different story. Our logistic regression models (particularly `logreg_knn_impute_logreg_model`) reach AUC scores approaching 0.85-0.86, outperforming the KNN models in this metric. This indicates that while KNN models might have slightly better raw accuracy, the logistic regression models excel at ranking predictions by probability which is a crucial capability when we need to understand confidence levels in survival predictions.
 
--   ROC AUC: a more nuanced measure of how well our models distinguish between survivors and non-survivors
-
-The visualizations make it easy to compare performance across models. Interestingly, the top performers aren't necessarily what you might expect—while advanced methods like KNN have theoretical advantages, sometimes simpler models like logistic regression prove remarkably effective, especially with well-engineered features.
+From the metric table, we can see that the best logistic regression model achieves an accuracy of approximately 79.6% with an AUC of 0.85, while the best KNN model reaches about 80.4% accuracy but with a slightly lower AUC of 0.83. This trade-off between metrics highlights an important consideration in model selection – whether we prioritize overall correctness (accuracy) or probabilistic ranking ability (AUC).
 
 # **9. Selecting the Best Model and Making Predictions**
 
@@ -359,19 +430,23 @@ test_metrics <- test_results |>
 test_metrics
 ```
 
-After evaluating all contenders, I've selected our best-performing model based on ROC AUC score. This model balances multiple performance aspects rather than optimizing for a single metric like accuracy, which can be misleading when classes are imbalanced (as they are in the Titanic data).
+After thorough evaluation, I've selected the best-performing model based on ROC AUC, which is `logreg_knn_impute_logreg_model`. This logistic regression model with KNN imputation balances multiple performance aspects rather than optimizing for a single metric like accuracy, which can be misleading with the imbalanced classes in the Titanic dataset.
 
-I've trained this model on our full training dataset and deployed it against our test data which is the true measure of a model's predictive power. The confusion matrix visualization shows us where our model succeeds and struggles, while our comprehensive metrics suite gives us a multi-faceted view of performance:
+The confusion matrix heatmap reveals the model's prediction patterns in more detail. The darker squares along the diagonal (true negatives in the top-left and true positives in the bottom-right) show where our model correctly identified both non-survivors and survivors. From the intensity of these squares, we can see the model is particularly strong at identifying non-survivors (darker top-left square).
 
--   Accuracy: Overall correct prediction rate
+Our comprehensive metrics on the test data reveal:
 
--   Recall/Sensitivity: Proportion of actual survivors correctly identified
+-   Accuracy: 81.0% – the model correctly classifies about 4 out of 5 passengers overall
 
--   Precision: Proportion of predicted survivors who actually survived
+-   Recall: 69.6% – among actual survivors, the model identifies roughly 7 out of 10
 
--   Specificity: Proportion of non-survivors correctly identified
+-   Precision: 78.7% – when predicting someone survived, the model is right almost 80% of the time
 
--   Negative Predictive Value (NPV): Proportion of predicted non-survivors who actually didn't survive
+-   Specificity: 88.2% – the model excels at identifying non-survivors, correctly classifying nearly 9 out of 10
+
+-   NPV: 82.2% – when predicting someone didn't survive, the model is correct about 82% of the time
+
+These numbers tell us that our model is particularly good at identifying who didn't survive (high specificity) but slightly less adept at catching all survivors (lower recall). This asymmetry is like the historical reality of the Titanic disaster, where the majority did not survive.
 
 # **10. ROC Curve Analysis**
 
@@ -392,26 +467,18 @@ auc_value <- test_results |>
 auc_value
 ```
 
-A crucial aspect of binary classification models is understanding the tradeoff between sensitivity (catching true survivors) and specificity (correctly identifying non-survivors). The ROC curve brilliantly visualizes this tradeoff across different probability thresholds.
+A crucial aspect of binary classification models is understanding the tradeoff between sensitivity (catching true survivors) and specificity (correctly identifying non-survivors). The ROC curve visualizes this tradeoff across different probability thresholds.
 
-Our curve shows how the model performs at various decision thresholds, from being very strict about predicting survival (high specificity, low sensitivity) to being very permissive (high sensitivity, low specificity). The Area Under the Curve (AUC) gives us a single number summarizing the model's overall discriminative ability, irrespective of threshold choice.
+Our ROC curve shows a pronounced bow toward the upper-left corner of the plot, with the line rising steeply at first before gradually flattening. This shape indicates that our model achieves a good balance between true positive rate and false positive rate across various classification thresholds.
 
-An AUC close to 1.0 would indicate a near-perfect model, while 0.5 represents a model no better than random guessing. Our model's performance falls somewhere in between, highlighting both the strengths of our approach and the inherent unpredictability of survival in this historic disaster
+The calculated AUC value of 0.865 quantifies this performance. Interpretively, this means our model has an 86.5% chance of ranking a randomly chosen survivor higher than a randomly chosen non-survivor – significantly better than the 50% we would expect from random guessing. In practical terms, if we had to decide who to allocate limited lifeboat space to based on survival probability, our model would make the right call about 87% of the time.
 
-## 13. Final Model Interpretation and Insights
-
-Our journey through the Titanic dataset has revealed both technical insights about predictive modeling and sobering historical realities about the disaster itself.
-
-From a modeling perspective, we've seen how different preprocessing strategies and algorithms perform, with our optimized model achieving respectable predictive accuracy. The comparison of logistic regression and KNN models demonstrates that sometimes simpler, more interpretable approaches can compete with more complex algorithms when features are well-engineered.
-
-More importantly, our analysis has quantified what historical accounts have long described: survival was strongly influenced by socioeconomic factors and gender. First-class passengers had dramatically better odds than those in steerage, while women and children were prioritized during evacuation. These patterns reflect the social hierarchies and gender norms of early 20th century society, frozen in time by this maritime tragedy.
-
-While no model can fully capture the chaos and individual stories of that fateful night, our analysis provides a data-driven window into who survived and why, illustrating how statistical methods can illuminate historical events.
+This strong AUC score validates our model selection approach and suggests that logistic regression with KNN imputation effectively captures the complex patterns within the Titanic dataset. The curve's shape also offers insights into potential threshold adjustments we could make to favor either sensitivity or specificity depending on the specific analytical goals.
 
 # 11. Conclusion
 
-This analysis has demonstrated the power of modern machine learning techniques for classification problems, even with historical datasets like the Titanic passenger records. By applying a systematic approach—from exploratory analysis through model selection, evaluation, and optimization—we've extracted meaningful insights and created a predictive model with respectable performance.
+This analysis of the Titanic dataset demonstrates a complete data science workflow from preprocessing through model evaluation. Through careful data preprocessing with multiple imputation strategies and appropriate handling of categorical variables, I established a solid foundation for understanding the factors that influenced passenger survival. The systematic approach to model evaluation, comparing logistic regression and KNN models across different configurations using tidymodels, revealed that while KNN models achieved slightly higher accuracy, logistic regression offered better probabilistic ranking capabilities.
 
-Beyond the technical aspects, this project serves as a reminder of how data science can illuminate historical events and social patterns. The stark differences in survival rates across passenger classes and demographic groups provide a quantitative lens on the human dimensions of this historic tragedy.
+The final model achieved 81% accuracy and an AUC of 0.865 on unseen test data. The model's higher specificity (88.2%) compared to recall (69.6%) reflects the historical reality that the majority of passengers did not survive, with clear patterns emerging around passenger class, gender, and age. These insights not only have statistical significance but also provide a numerical perspective on the historic tragedy.
 
-For future work, ensemble methods combining multiple models might further improve predictive performance, while additional feature engineering could extract even more signal from this rich historical dataset.
+Throughout this project, I've applied a methodical, rigorous approach to data science using industry-standard tools and techniques. From exploratory data analysis that uncovered meaningful patterns to the implementation of cross-validation techniques ensuring reliable model evaluation, each step followed best practices in statistical modeling. This systematic workflow demonstrates how modern machine learning techniques can extract valuable insights even from historical datasets, bringing statistical clarity to complex human events while maintaining technical rigor and analytical integrity.
