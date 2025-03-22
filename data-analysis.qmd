@@ -65,7 +65,7 @@ Beyond predictive modeling, this project reflects key responsibilities in a prof
 
 <!-- -->
 
--   **Parch**: Number of parents or chixldren aboard the Titanic. This family relation variable counts:
+-   **Parch**: Number of parents or children aboard the Titanic. This family relation variable counts:
 
     -   Parents: mother, father
 
@@ -243,53 +243,53 @@ Since we're predicting a binary outcome (survived or didn't survive), all models
 
 ```{r}
 # For Logistic Regression recipes
-logreg_meanimpute <- recipe(Survived ~ ., data = train_data) %>% 
-  step_nzv(all_predictors()) %>%  
-  step_zv(all_predictors()) %>%
-  step_impute_mean(all_numeric_predictors()) %>%
-  step_unknown(Embarked) %>%  # Handle missing values in Embarked
-  step_dummy(all_nominal_predictors(), one_hot = FALSE) %>%
+logreg_meanimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |>  
+  step_zv(all_predictors()) |>
+  step_impute_mean(all_numeric_predictors()) |>
+  step_unknown(Embarked) |>  # Handle missing values in Embarked
+  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>
   step_lincomb(all_numeric_predictors())  
 
-logreg_medianimpute <- recipe(Survived ~ ., data = train_data) %>% 
-  step_nzv(all_predictors()) %>%  
-  step_zv(all_predictors()) %>%
-  step_impute_median(all_numeric_predictors()) %>%  
-  step_unknown(Embarked) %>%  # Handle missing values in Embarked
-  step_dummy(all_nominal_predictors(), one_hot = FALSE) %>%
+logreg_medianimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |>  
+  step_zv(all_predictors()) |>
+  step_impute_median(all_numeric_predictors()) |>  
+  step_unknown(Embarked) |>  # Handle missing values in Embarked
+  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>
   step_lincomb(all_numeric_predictors())  
 
-logreg_knnimpute <- recipe(Survived ~ ., data = train_data) %>% 
-  step_nzv(all_predictors()) %>% 
-  step_zv(all_predictors()) %>%
-  step_impute_knn(all_numeric_predictors()) %>%  
-  step_unknown(Embarked) %>%  # Handle missing values in Embarked
-  step_dummy(all_nominal_predictors(), one_hot = FALSE) %>%
+logreg_knnimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |> 
+  step_zv(all_predictors()) |>
+  step_impute_knn(all_numeric_predictors()) |>  
+  step_unknown(Embarked) |>  # Handle missing values in Embarked
+  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>
   step_lincomb(all_numeric_predictors())  
 
 # For KNN recipes
-knn_meanimpute <- recipe(Survived ~ ., data = train_data) %>% 
-  step_nzv(all_predictors()) %>%  
-  step_zv(all_predictors()) %>%
-  step_impute_mean(all_numeric_predictors()) %>%  
-  step_unknown(Embarked) %>%  # Handle missing values in Embarked
-  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+knn_meanimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |>  
+  step_zv(all_predictors()) |>
+  step_impute_mean(all_numeric_predictors()) |>  
+  step_unknown(Embarked) |>  # Handle missing values in Embarked
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>
   step_lincomb(all_numeric_predictors())  
 
-knn_medianimpute <- recipe(Survived ~ ., data = train_data) %>% 
-  step_nzv(all_predictors()) %>%  
-  step_zv(all_predictors()) %>%
-  step_impute_median(all_numeric_predictors()) %>%  
-  step_unknown(Embarked) %>%  # Handle missing values in Embarked
-  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+knn_medianimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |>  
+  step_zv(all_predictors()) |>
+  step_impute_median(all_numeric_predictors()) |>  
+  step_unknown(Embarked) |>  # Handle missing values in Embarked
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>
   step_lincomb(all_numeric_predictors())  
 
-knn_knnimpute <- recipe(Survived ~ ., data = train_data) %>% 
-  step_nzv(all_predictors()) %>%  
-  step_zv(all_predictors()) %>%
-  step_impute_knn(all_numeric_predictors()) %>%  
-  step_unknown(Embarked) %>%  # Handle missing values in Embarked
-  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+knn_knnimpute <- recipe(Survived ~ ., data = train_data) |> 
+  step_nzv(all_predictors()) |>  
+  step_zv(all_predictors()) |>
+  step_impute_knn(all_numeric_predictors()) |>  
+  step_unknown(Embarked) |>  # Handle missing values in Embarked
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>
   step_lincomb(all_numeric_predictors())
 
 ```
