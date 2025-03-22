@@ -1,9 +1,12 @@
 ---
-title: "Statistical Machine Learning: Data Analysis" 
+title: "Titanic Data Analysis"
+subtitle: "Statistical Machine Learning: Data Analysis"
 author: "Aayush Shrestha"
+date: today
 editor: visual
 format:
   html:
+    theme: darkly
     embed-resources: true
 execute:
 
@@ -368,15 +371,45 @@ all_fits <- all_models |>
 # Collect metrics
 collect_metrics(all_fits)
 
+
+
+```
+
+```{r}
 # Plot Accuracy for Classification Models
 autoplot(all_fits, metric = "accuracy") +
-  geom_text_repel(aes(label = wflow_id), nudge_x = 1/8, nudge_y = 1/100) +
-  theme(legend.position = "none")
+  geom_label_repel(aes(label = wflow_id), 
+                   size = 3, 
+                   label.size = 0.15, 
+                   alpha = 0.7, 
+                   max.overlaps = 10, 
+                   force = 5, 
+                   nudge_x = 0.2, 
+                   nudge_y = 0.005, 
+                   seed = 42) + 
+  theme_bw(base_size = 14) +
+  theme(legend.position = "none") +
+  labs(title = "Accuracy of Classification Models",
+       x = "Workflow Rank",
+       y = "Accuracy")
 
 # Plot AUC for Classification Models
 autoplot(all_fits, metric = "roc_auc") +
-  geom_text_repel(aes(label = wflow_id), nudge_x = 1/8, nudge_y = 1/100) +
-  theme(legend.position = "none")
+  geom_label_repel(aes(label = wflow_id), 
+                   size = 3, 
+                   label.size = 0.15, 
+                   alpha = 0.7, 
+                   max.overlaps = 10, 
+                   force = 5, 
+                   nudge_x = 0.2, 
+                   nudge_y = 0.005, 
+                   seed = 42) + 
+  theme_bw(base_size = 14) +
+  theme(legend.position = "none") +
+  labs(title = "AUC-ROC of Classification Models",
+       x = "Workflow Rank",
+       y = "AUC-ROC")
+
 ```
 
 (If you're rendering this yourself, please be patient for this step, the Titanic wasn't built in a day.)
