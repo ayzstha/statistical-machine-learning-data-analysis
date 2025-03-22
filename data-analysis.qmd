@@ -7,100 +7,114 @@ format:
     embed-resources: true
 ---
 
-# **Introduction**
+# **Introduction** 
 
 The Titanic dataset from Kaggle (<https://www.kaggle.com/datasets/yasserh/titanic-dataset>) is a widely used dataset, often used for classification problems. It contains detailed information about passengers on the RMS Titanic, including attributes such as **age, gender, ticket class, fare, and survival status**. The goal of this project is to analyze models with survival status as the target variable. I will apply techniques such as logistic regression, k-nearest neighbors (KNN), gradient descent, and multiple linear regression while incorporating essential machine learning practices like cross-validation, hyperparameter tuning, and model evaluation. I will also conduct exploratory data analysis (EDA) to identify trends and patterns within the dataset, to make sure that our models are built on meaningful insights.
 
 Beyond predictive modeling, this project reflects key responsibilities in a professional data science role. The workflow includes collecting, cleaning, and analyzing data, ensuring data accuracy and integrity, and developing visual reports and dashboards to track model performance. The ability to identify trends, anomalies, and key relationships within the data is crucial for making informed decisions. This analysis relies on industry-standard tools in R, using tidyverse for data manipulation and visualization and tidymodels for machine learning workflows. A strong grasp of statistical inference, regression and classification models, preprocessing, feature engineering, and model evaluation is necessary for building interpretable models. By following a structured and methodical approach, this project not only enhances my technical expertise but also reinforces best practices in data science and machine learning.
 
-# **1. Load Libraries and Data**
+# **1. Loading Libraries and Data**
 
 ```{r}
+# Load Required Libraries
 library(tidyverse)
 library(tidymodels)
-library(knitr)
+library(kknn)
+library(ggrepel)
+library(yardstick)
+library(ggplot2)
 
-# Avoid any problems
-tidymodels_prefer()
+# Set Seed for Reproducibility
+set.seed(401)  
 
-# Load Titanic dataset
-titanic <- read.csv("titanic.csv")
+# "The Titanic is associated with the number 401 because that was the yard number assigned to the ship by its builders, Harland and Wolff". Just thought this was a fun seed number!
 
-# Checking data structure
+# Load Titanic Dataset
+titanic <- read_csv("titanic.csv")
+
+# View First Few Rows
 glimpse(titanic)
-summary(titanic)
+
 ```
 
-The first step in data analysis is to actually load the data which is done with this step. I will also load all the libraries that are needed for this project to avoid redundancy. Let's also analyze the summary and see if there is anything meaningful here.
+We begin by loading essential libraries such as `tidyverse` for data manipulation, `tidymodels` for model building, and `ggplot2` for visualization. Setting a random seed ensures that our results are reproducible. We then load the Titanic dataset and take a quick look at its structure using `glimpse()`, allowing us to identify variable types and potential issues such as missing values.
 
 The Titanic dataset contains 891 passenger records, with `Survived` as the target variable (0 = did not survive, 1 = survived). The dataset includes numerical and categorical features such as `Pclass` (passenger class), `Age` (ranging from 0.42 to 80, with 177 missing values), `Fare` (ranging from 0 to 512.33), and `SibSp`/`Parch` (family aboard). Most passengers traveled alone, and survival rates indicate class-based disparities. Proper data preprocessing, including handling missing values and encoding categorical variables, is essential before model training.
 
-# **2. Exploratory Data Analysis (EDA)**
+# **2. Cleaning Data**
 
 ```{r}
-# Check missing values
-titanic |> summarise(across(everything(), ~sum(is.na(.))))
+titanic <- titanic |>
+  mutate(
+    Survived = factor(Survived),
+    Pclass = factor(Pclass),
+    Sex = factor(Sex),
+    Embarked = factor(Embarked)
+  ) |>
+  select(-PassengerId, -Name, -Ticket, -Cabin)  # Drop unnecessary columns
 
-# Visualizing survival rate
-ggplot(titanic, aes(x = Survived)) +
-  geom_bar(fill = "steelblue") +
-  theme_minimal() +
-  labs(title = "Survival Distribution", x = "Survived", y = "Count")
 
-# Age distribution
-ggplot(titanic, aes(x = Age)) +
-  geom_histogram(bins = 30, fill = "skyblue", color = "black") +
-  theme_minimal() +
-  labs(title = "Age Distribution", x = "Age", y = "Count")
-
-# Survival by class
-ggplot(titanic, aes(x = Pclass, fill = factor(Survived))) +
-  geom_bar(position = "dodge") +
-  theme_minimal() +
-  labs(title = "Survival by Passenger Class", x = "Pclass", y = "Count")
 ```
 
-We understand a lot from these simple graphs. If we ignore some errors within the data, which we will address in our next step, we see that a lot more people did not survive as compared to those who did. If we dive deeper (no pun intended), we can also see that middle-aged people within the age of 20-40 had the highest chance of survival when compared to other ages. Another interesting yet not shocking graph reveals that the lowest third class passengers had the highest number of people who did not survive.
+This cleaned Titanic dataset still retains all missing values, which I will handle later with imputationwithin the modeling workflow to prevent data leakage. Categorical variables such as `Survived`, `Pclass`, `Sex`, and `Embarked` are converted into factors, making them suitable for machine learning models. Unnecessary columns like `PassengerId`, `Name`, `Ticket`, and `Cabin` are removed to focus on relevant predictive features. Since imputation is not performed at this stage, missing values in `Age`, `Fare`, and `Embarked` remain, allowing for flexible preprocessing strategies within `recipe()` during model training.
+
+# **3. Exploratory Data Analysis (EDA)**
+
+```{r}
+# Plot the distribution of numerical features
+numerical_features <- c("Age", "SibSp", "Parch", "Fare")
+for (feature in numerical_features) {
+  print(
+    ggplot(titanic, aes(x = .data[[feature]])) +
+      geom_histogram(binwidth = 10, fill = "blue", color = "black") +
+      ggtitle(paste("Distribution of", feature)) +
+      theme_minimal() +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      labs(x = feature, y = "Count")
+  )
+}
+
+# Plot the distribution of categorical features
+categorical_features <- c("Survived", "Pclass", "Sex", "Embarked")
+for (feature in categorical_features) {
+  print(
+    ggplot(titanic, aes(x = .data[[feature]])) +
+      geom_bar(fill = "blue", color = "black") +
+      ggtitle(paste("Distribution of", feature)) +
+      theme_minimal() +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      labs(x = feature, y = "Count")
+  )
+}
+
+# Plot survival rate by different features
+features_to_plot <- c("Pclass", "Sex", "Embarked")
+for (feature in features_to_plot) {
+  print(
+    ggplot(titanic, aes(x = .data[[feature]], fill = as.factor(Survived))) +
+      geom_bar(position = "fill") +
+      ggtitle(paste("Survival Rate by", feature)) +
+      theme_minimal() +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      labs(x = feature, y = "Proportion", fill = "Survived")
+  )
+}
+```
+
+We understand a lot from these simple graphs. If we ignore some errors within the data, which we will address in upcoming steps, we see that a lot more people did not survive as compared to those who did. If we dive deeper (no pun intended), we can also see that middle-aged people within the age of 20-40 had the highest chance of survival when compared to other ages. Another interesting yet not shocking graph reveals that the lowest third class passengers had the highest number of people who did not survive.
 
 These simple yet effective graphs along with the summary give us a lot to work with but also highlight that there are a few anomalies within the data that need addressing. This is why we preprocess our data in the next step.
-
-# **3. Clean Data**
-
-```{r}
-titanic <- titanic |> 
-  mutate(
-    Survived = as_factor(Survived),
-    Pclass = factor(Pclass, levels = c(1, 2, 3), labels = c("First", "Second", "Third")),
-    Sex = as_factor(Sex),
-    Embarked = if_else(is.na(Embarked), "S", Embarked),  # Fill missing with most common
-    Embarked = as_factor(Embarked),
-    Has_Cabin = if_else(is.na(Cabin), 0, 1),  # Binary cabin feature
-    Age = if_else(is.na(Age), median(Age, na.rm = TRUE), Age) # Impute missing Age
-  ) |> 
-  select(-Name, -Ticket, -Cabin)  # Remove Name, Cabin and Ticket columns
-
-```
-
-To preprocess the Titanic dataset effectively, we first converted categorical variables like `Survived`, `Pclass`, `Sex`, and `Embarked` into factors to ensure proper handling by machine learning models. Since `Pclass` represents an ordinal variable, we explicitly labeled its levels for better interpretability. Missing values in `Embarked` were replaced with the most common value, while `Cabin`, which had too many missing entries, was transformed into a binary `Has_Cabin` feature instead of direct imputation. The `Ticket` column, being highly inconsistent with mixed formats, was dropped as it lacked immediate predictive value. `Name` is also dropped because there are already other identifiers who do the same job. Finally, `Cabin` is also dropped since it doesn't necessarily add anything since we already have `Pclass` which is more valuable for us.
-
-Further, missing values in `Age` and `Fare` will be handled in the preprocessing stage through imputation techniques to maintain data integrity.
-
-I'm also imputing missing values in the `Age` column using the median to make things slightly simpler for myself instead of using model based imputation.
-
-The next step is to split our data into training data and test data.
 
 # **4. Train-Test Split & Cross-Validation**
 
 ```{r}
-set.seed (401)
-# "The Titanic is associated with the number 401 because that was the yard number assigned to the ship by its builders, Harland and Wolff". Just thought this was a fun seed number!
-
 titanic_split <- initial_split(titanic, prop = 0.8, strata = Survived)
 train_data <- training(titanic_split)
 test_data <- testing(titanic_split)
 
-
+# 10-Fold Cross-Validation with 10 repeats
 titanic_folds <- vfold_cv(train_data, v = 10, strata = Survived, repeats = 10)
+
 ```
 
 We set the seed to 401 as a nod to the Titanic's yard number. The dataset is split into an 80-20 train-test split while preserving the class distribution of `Survived` using stratification.
@@ -109,34 +123,29 @@ To improve model reliability, we also apply 10-fold cross-validation with 10 rep
 
 Our next step will be to define our required models.
 
-# **5. Define our models**
+# **5. Defining our models**
 
 ```{r}
-# Logistic Regression Model
-log_reg_model <- logistic_reg() |>
-  set_engine("glm") |>
+# Logistic Regression
+log_reg_model <- logistic_reg() |> 
+  set_engine("glm") |> 
   set_mode("classification")
 
-# Linear Regression (for potential numerical analysis, not classification)
-lm_model <- linear_reg() |> 
-  set_engine("lm")
-
-# K-Nearest Neighbors (5 neighbors)
-knn5_model <- nearest_neighbor(neighbors = 5) |>
-  set_engine("kknn") |>
+# KNN Models with Different k Values
+knn5_model <- nearest_neighbor(neighbors = 5) |> 
+  set_engine("kknn") |> 
   set_mode("classification")
 
-# K-Nearest Neighbors (10 neighbors)
-knn10_model <- nearest_neighbor(neighbors = 10) |>
-  set_engine("kknn") |>
+knn10_model <- nearest_neighbor(neighbors = 10) |> 
+  set_engine("kknn") |> 
   set_mode("classification")
 ```
 
-Here, I have defined three models: Logistic Regression Model, Linear Regression Model and K-Nearest Neighbours (k =5 and k = 10). Since I am predicting Survived, which is a binary classification problem, my models are set to `"classification"` mode rather than `"regression"`.
+Here, I have defined three models: Logistic Regression Model and K-Nearest Neighbours (k =5 and k = 10). Since I am predicting Survived, which is a binary classification problem, my models are set to `"classification"` mode rather than `"regression"`.
 
 Now, let us preprocess our data using recipes.
 
-# **6. Preprocessing data using Recipes**
+# **6. Preprocessing Data with Recipes**
 
 ```{r}
 # Logistic Regression - Mean Imputation
@@ -144,8 +153,7 @@ logreg_meanimpute <- recipe(Survived ~ ., data = train_data) |>
   step_nzv(all_predictors()) |>  
   step_zv(all_predictors()) |>
   step_impute_mean(all_numeric_predictors()) |>
-  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
-  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>
   step_lincomb(all_numeric_predictors())  
 
 # Logistic Regression - Median Imputation
@@ -153,8 +161,7 @@ logreg_medianimpute <- recipe(Survived ~ ., data = train_data) |>
   step_nzv(all_predictors()) |>  
   step_zv(all_predictors()) |>
   step_impute_median(all_numeric_predictors()) |>  
-  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
-  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>
   step_lincomb(all_numeric_predictors())  
 
 # Logistic Regression - KNN Imputation
@@ -162,8 +169,7 @@ logreg_knnimpute <- recipe(Survived ~ ., data = train_data) |>
   step_nzv(all_predictors()) |> 
   step_zv(all_predictors()) |>
   step_impute_knn(all_numeric_predictors()) |>  
-  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
-  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>
   step_lincomb(all_numeric_predictors())  
 
 # KNN Classification - Mean Imputation
@@ -171,8 +177,7 @@ knn_meanimpute <- recipe(Survived ~ ., data = train_data) |>
   step_nzv(all_predictors()) |>  
   step_zv(all_predictors()) |>
   step_impute_mean(all_numeric_predictors()) |>  
-  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>  
-  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>
   step_lincomb(all_numeric_predictors())  
 
 # KNN Classification - Median Imputation
@@ -180,8 +185,7 @@ knn_medianimpute <- recipe(Survived ~ ., data = train_data) |>
   step_nzv(all_predictors()) |>  
   step_zv(all_predictors()) |>
   step_impute_median(all_numeric_predictors()) |>  
-  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>  
-  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>
   step_lincomb(all_numeric_predictors())  
 
 # KNN Classification - KNN Imputation
@@ -189,42 +193,14 @@ knn_knnimpute <- recipe(Survived ~ ., data = train_data) |>
   step_nzv(all_predictors()) |>  
   step_zv(all_predictors()) |>
   step_impute_knn(all_numeric_predictors()) |>  
-  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>  
-  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
-  step_lincomb(all_numeric_predictors())  
-
-# Linear Regression - Mean Imputation
-lm_meanimpute <- recipe(Survived ~ ., data = train_data) |> 
-  step_nzv(all_predictors()) |> 
-  step_zv(all_predictors()) |>
-  step_impute_mean(all_numeric_predictors()) |>  
-  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
-  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
-  step_lincomb(all_numeric_predictors())  
-
-# Linear Regression - Median Imputation
-lm_medianimpute <- recipe(Survived ~ ., data = train_data) |> 
-  step_nzv(all_predictors()) |> 
-  step_zv(all_predictors()) |>
-  step_impute_median(all_numeric_predictors()) |>  
-  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
-  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
-  step_lincomb(all_numeric_predictors())  
-
-# Linear Regression - KNN Imputation
-lm_knnimpute <- recipe(Survived ~ ., data = train_data) |> 
-  step_nzv(all_predictors()) |>  
-  step_zv(all_predictors()) |>
-  step_impute_knn(all_numeric_predictors()) |>  
-  step_dummy(all_nominal_predictors(), one_hot = FALSE) |>  
-  step_corr(all_numeric_predictors(), threshold = 0.5) |>  
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>
   step_lincomb(all_numeric_predictors())  
 
 ```
 
 With this, each model has three versions of preprocessing using KNN, Mean and Median. However, this looks a bit too messy and all over the place. To organize everything for my sake and yours, I will arrange this into model lists and workflow sets.
 
-# **7. Model lists and Workflow Sets**
+# **7. Creating Model Lists and Workflow Sets**
 
 ```{r}
 # Logistic Regression Preprocessors
@@ -241,94 +217,122 @@ knn_preprocessors <- list(
   knn_median_impute = knn_medianimpute
 )
 
-# Linear Regression Preprocessors
-lm_preprocessors <- list(
-  lm_knn_impute = lm_knnimpute,
-  lm_mean_impute = lm_meanimpute,
-  lm_median_impute = lm_medianimpute
-)
-
 # Logistic Regression Model
 logreg_models <- list(
-  logreg_model = logistic_reg() |> 
-    set_engine("glm") |> 
+  logreg_model = logistic_reg() %>% 
+    set_engine("glm") %>% 
     set_mode("classification")
 )
 
 # KNN Models with different k values
 knn_models <- list(
-  knn5 = nearest_neighbor(neighbors = 5) |> 
-    set_engine("kknn") |> 
+  knn5 = nearest_neighbor(neighbors = 5) %>% 
+    set_engine("kknn") %>% 
     set_mode("classification"),
   
-  knn10 = nearest_neighbor(neighbors = 10) |> 
-    set_engine("kknn") |> 
+  knn10 = nearest_neighbor(neighbors = 10) %>% 
+    set_engine("kknn") %>% 
     set_mode("classification")
-)
-
-# Linear Regression Model
-lm_models <- list(
-  lm_model = linear_reg() |> 
-    set_engine("lm")
 )
 
 # Create workflow sets for each model type
 logreg_workflows <- workflow_set(logreg_preprocessors, logreg_models, cross = TRUE)
 knn_workflows <- workflow_set(knn_preprocessors, knn_models, cross = TRUE)
-lm_workflows <- workflow_set(lm_preprocessors, lm_models, cross = TRUE)
 
 # Combine all workflow sets
-all_models <- bind_rows(logreg_workflows, knn_workflows, lm_workflows)
+all_models <- bind_rows(logreg_workflows, knn_workflows)
 
 # Print workflow set
 all_models
 
 ```
 
-Now everything looks very organized and put together, much like the Titanic in its early hours. Now we have 12 components to look at. Let's collect metrics and create a plot to better understand our preprocessing.
+Now everything looks very organized and put together, much like the Titanic in its early hours. Now we have 9 components to look at. Let's collect metrics and create a plot to better understand our preprocessing.
+
+# **8. Model Training and Evaluation**
 
 ```{r}
-valid_fits <- all_fits %>%
-  filter(map_lgl(result, ~ length(.x) > 0))
-
-collect_metrics(valid_fits)
-
-```
-
-# **8. Metrics and Plotting**
-
-```{r}
-# Define classification and regression metrics
+# Define classification metrics
 titanic_class_metrics <- metric_set(accuracy, roc_auc)
-titanic_reg_metrics <- metric_set(rmse, rsq)
 
-# Fit resamples using cross-validation
-all_fits <- all_models |> 
+# Fit all models using cross-validation
+all_fits <- all_models %>% 
   workflow_map("fit_resamples",
                resamples = titanic_folds,
-               metrics = titanic_class_metrics) # Use titanic_reg_metrics for LM
+               metrics = titanic_class_metrics)
+
+# Collect metrics
+collect_metrics(all_fits)
 
 # Plot Accuracy for Classification Models
-autoplot(all_fits, metric = "accuracy") +
+autoplot(all_fits, rank_metric = "accuracy") +
   geom_text_repel(aes(label = wflow_id), nudge_x = 1/8, nudge_y = 1/100) +
   theme(legend.position = "none")
 
 # Plot AUC for Classification Models
-autoplot(all_fits, metric = "roc_auc") +
-  geom_text_repel(aes(label = wflow_id), nudge_x = 1/8, nudge_y = 1/100) +
-  theme(legend.position = "none")
-
-# Plot RMSE for Regression Models
-autoplot(all_fits, metric = "rmse") +
-  geom_text_repel(aes(label = wflow_id), nudge_x = 1/8, nudge_y = 1/100) +
-  theme(legend.position = "none")
-
-# Plot R-squared for Regression Models
-autoplot(all_fits, metric = "rsq") +
+autoplot(all_fits, rank_metric = "roc_auc") +
   geom_text_repel(aes(label = wflow_id), nudge_x = 1/8, nudge_y = 1/100) +
   theme(legend.position = "none")
 ```
 
-# **8. Conclusion**
+# **9. Selecting the Best Model and Making Predictions**
 
-This step-by-step analysis explored Titanic survival prediction using Logistic Regression, k-NN, and Gradient Descent. Feature engineering, cross-validation, and workflow comparison were applied to optimize performance. Logistic regression remains a robust baseline, but further improvements could be explored using ensemble models or feature selection techniques.
+```{r}
+# Select the best model
+best_model <- all_fits %>%
+  rank_results(rank_metric = "roc_auc") %>%
+  filter(.metric == "roc_auc") %>%
+  slice(1) %>%
+  pull(wflow_id)
+
+# Fit the best model on the full training data
+final_fit <- all_models %>%
+  extract_workflow(best_model) %>%
+  fit(data = train_data)
+
+# Make predictions on test data
+test_results <- test_data %>%
+  mutate(
+    pred_class = predict(final_fit, new_data = test_data)$.pred_class,
+    pred_prob = predict(final_fit, new_data = test_data, type = "prob")$.pred_1
+  )
+
+# Create confusion matrix
+conf_mat <- test_results %>%
+  conf_mat(truth = Survived, estimate = pred_class)
+
+# Plot confusion matrix
+conf_mat %>%
+  autoplot("heatmap")
+
+# Calculate comprehensive metrics
+binary_metrics <- metric_set(accuracy, recall, precision, 
+                            specificity, npv, mcc, f_meas)
+
+test_metrics <- test_results %>%
+  binary_metrics(truth = Survived, estimate = pred_class, event_level = "second")
+
+# Print metrics
+test_metrics
+```
+
+# **10. ROC Curve Analysis**
+
+```{r}
+# Generate points for ROC curve
+roc_curve_data <- test_results %>%
+  roc_curve(truth = Survived, pred_prob, event_level = "second")
+
+# Plot ROC curve
+roc_curve_data %>%
+  autoplot()
+
+# Calculate AUC
+auc_value <- test_results %>%
+  roc_auc(truth = Survived, pred_prob, event_level = "second")
+
+# Print AUC
+auc_value
+```
+
+# 11. Conclusion
