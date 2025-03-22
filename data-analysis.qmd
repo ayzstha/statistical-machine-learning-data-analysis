@@ -4,19 +4,24 @@ subtitle: "Statistical Machine Learning: Data Analysis"
 author: "Aayush Shrestha"
 date: today
 editor: visual
+
 format:
   html:
     theme: darkly
-    embed-resources: true
-execute:
+    highlight-style: atom-one-dark
+    smooth-scroll: true
+    scroll-progress: true
+    code-fold: show
+    code-tools: true 
 
+execute:
   error: false
   warning: false
 ---
 
-# **Introduction** 
+# **Introduction**
 
-The Titanic dataset from Kaggle (<https://www.kaggle.com/datasets/yasserh/titanic-dataset>) is a fascinating window into one of history's most famous maritime disasters. This is a widely used dataset, often used for classification problems. It contains detailed information about passengers on the RMS Titanic. The goal of this project is to analyze models with survival status as the target variable. I will apply techniques such as logistic regression, k-nearest neighbors (KNN), gradient descent, and multiple linear regression while incorporating essential machine learning practices like cross-validation, hyperparameter tuning, and model evaluation. I will also conduct exploratory data analysis (EDA) to identify trends and patterns within the dataset, to make sure that our models are built on meaningful insights.
+The Titanic dataset from Kaggle (<https://www.kaggle.com/datasets/yasserh/titanic-dataset>) is a fascinating window into one of history's most famous maritime disasters. This is a widely used dataset, often for classification problems. It contains detailed information about passengers on the RMS Titanic. The goal of this project is to analyze models with survival status as the target variable. I will apply techniques such as logistic regression and k-nearest neighbors (KNN) while incorporating essential machine learning practices like cross-validation and model evaluation. I will also conduct exploratory data analysis (EDA) to identify trends and patterns within the dataset, to make sure that our models are built on meaningful insights.
 
 Beyond predictive modeling, this project reflects key responsibilities in a professional data science role. The workflow includes collecting, cleaning, and analyzing data, ensuring data accuracy and integrity, and developing visual reports and dashboards to track model performance. The ability to identify trends, anomalies, and key relationships within the data is crucial for making informed decisions. This analysis relies on industry-standard tools in R, using tidyverse for data manipulation and visualization and tidymodels for machine learning workflows. A strong grasp of statistical inference, regression and classification models, preprocessing, feature engineering, and model evaluation is necessary for building interpretable models. By following a structured and methodical approach, this project not only enhances my technical expertise but also reinforces best practices in data science and machine learning.
 
@@ -60,7 +65,7 @@ Beyond predictive modeling, this project reflects key responsibilities in a prof
 
 <!-- -->
 
--   **Parch**: Number of parents or children aboard the Titanic. This family relation variable counts:
+-   **Parch**: Number of parents or chixldren aboard the Titanic. This family relation variable counts:
 
     -   Parents: mother, father
 
@@ -99,11 +104,13 @@ library(kknn)
 library(ggrepel)
 library(yardstick)
 library(ggplot2)
+library(ggthemes)
 
 # Set Seed for Reproducibility
 set.seed(401)  
 
-# "The Titanic is associated with the number 401 because that was the yard number assigned to the ship by its builders, Harland and Wolff". Just thought this was a fun seed number!
+# "The Titanic is associated with the number 401 because that was the yard number #assigned to the ship by its builders, Harland and Wolff". 
+#Just thought this was a fun seed number!
 
 # Load Titanic Dataset
 titanic <- read_csv("titanic.csv")
@@ -113,9 +120,11 @@ glimpse(titanic)
 
 ```
 
-We've loaded essential packages like tidyverse for data manipulation, tidymodels for building predictive workflows, and visualization tools like ggplot2. I've set our random seed to 401 which was the actual yard number assigned to the Titanic by its builders, adding a touch of historical significance while ensuring reproducible results.
+We've loaded essential packages like tidyverse for data manipulation, tidymodels for building predictive workflows, and visualization tools like ggplot2. I've set our random seed to 401 which was the actual yard number assigned to the Titanic by its builders, adding just a touch of historical significance while ensuring reproducible results.
 
 Our initial glimpse at the dataset reveals 891 passenger records with various features. The target variable "Survived" (0 = perished, 1 = survived) will be what we're trying to predict. We have both numerical variables like Age (ranging from 0.42 to 80 years) and Fare (from free passage to a whopping 512.33), as well as categorical variables like passenger class and embarkation point. There are some missing values, particularly in Age (177 missing entries), which we'll need to address during preprocessing.
+
+The next step is to clean the data and continue using that data for the rest of the project.
 
 # **2. Cleaning Data**
 
@@ -132,48 +141,55 @@ titanic <- titanic |>
 
 ```
 
-Here, I've converted categorical variables (Survived, Pclass, Sex, Embarked) into factors, making them suitable for our classification models. I've also removed less useful columns like PassengerId, Name, Ticket, and Cabin to focus on predictive features.
+In this step, I've converted categorical variables (Survived, Pclass, Sex, Embarked) into factors, making them suitable for our classification models. I've also removed less useful columns like PassengerId, Name, Ticket, and Cabin to focus on predictive features.
 
 I've left missing values intact at this stage rather than imputing them immediately. This is to prevent data leakage. We will handle missing values within our modeling workflow using various imputation strategies to see which performs best.
 
 # **3. Exploratory Data Analysis (EDA)**
 
 ```{r}
-# Plot the distribution of numerical features
+
+# Define colors for consistency
+numerical_color <- "#00876c"  # Greenish-blue
+categorical_color <- "#e63946"  # Red
+survival_colors <- c("#1f78b4", "#33a02c")  # Blue for non-survivors, Green for survivors
+
+# Plot Distribution of Numerical Features
 numerical_features <- c("Age", "SibSp", "Parch", "Fare")
 for (feature in numerical_features) {
   print(
     ggplot(titanic, aes(x = .data[[feature]])) +
-      geom_histogram(binwidth = 10, fill = "blue", color = "black") +
+      geom_histogram(binwidth = 10, fill = numerical_color, color = "white", alpha = 0.85) +
       ggtitle(paste("Distribution of", feature)) +
-      theme_minimal() +
-      theme(plot.title = element_text(hjust = 0.5)) +
+      theme_economist() +
+      theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
       labs(x = feature, y = "Count")
   )
 }
 
-# Plot the distribution of categorical features
+# Plot Distribution of Categorical Features
 categorical_features <- c("Survived", "Pclass", "Sex", "Embarked")
 for (feature in categorical_features) {
   print(
     ggplot(titanic, aes(x = .data[[feature]])) +
-      geom_bar(fill = "blue", color = "black") +
+      geom_bar(fill = categorical_color, color = "black", alpha = 0.85) +
       ggtitle(paste("Distribution of", feature)) +
-      theme_minimal() +
-      theme(plot.title = element_text(hjust = 0.5)) +
+      theme_economist() +
+      theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
       labs(x = feature, y = "Count")
   )
 }
 
-# Plot survival rate by different features
+# Plot Survival Rate by Different Features
 features_to_plot <- c("Pclass", "Sex", "Embarked")
 for (feature in features_to_plot) {
   print(
     ggplot(titanic, aes(x = .data[[feature]], fill = as.factor(Survived))) +
-      geom_bar(position = "fill") +
+      geom_bar(position = "fill", alpha = 0.85) +
+      scale_fill_manual(values = survival_colors) +
       ggtitle(paste("Survival Rate by", feature)) +
-      theme_minimal() +
-      theme(plot.title = element_text(hjust = 0.5)) +
+      theme_economist() +
+      theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
       labs(x = feature, y = "Proportion", fill = "Survived")
   )
 }
@@ -226,7 +242,6 @@ Since we're predicting a binary outcome (survived or didn't survive), all models
 # **6. Preprocessing Data with Recipes**
 
 ```{r}
-# Update the recipes to handle missing values in categorical variables
 # For Logistic Regression recipes
 logreg_meanimpute <- recipe(Survived ~ ., data = train_data) %>% 
   step_nzv(all_predictors()) %>%  
@@ -281,17 +296,19 @@ knn_knnimpute <- recipe(Survived ~ ., data = train_data) %>%
 
 Here, I've created six different preprocessing recipes to transform our raw data into model-ready format. Each recipe follows a similar pattern but with key differences in how missing values are handled:
 
-1.   First, we remove near-zero and zero-variance predictors that don't contribute meaningful information
+1.  First, we remove near-zero and zero-variance predictors that don't contribute meaningful information
 
-2.   Then we impute missing values using one of three strategies:
+2.  Then we impute missing values using one of three strategies:
 
-    -   Mean imputation (replacing missing values with the average)
+```         
+-   Mean imputation (replacing missing values with the average)
 
-    -   Median imputation (using the middle value, more robust to outliers)
+-   Median imputation (using the middle value, more robust to outliers)
 
-    -   KNN imputation (using similar instances to estimate missing values)
+-   KNN imputation (using similar instances to estimate missing values)
+```
 
-3.   Next, we convert categorical variables to dummy variables
+3.  Next, we convert categorical variables to dummy variables
 
 4.  Finally, we remove linearly dependent variables to avoid multicollinearity
 
@@ -346,7 +363,7 @@ all_models
 
 ```
 
-With our preprocessing recipes and models defined, it's time to organize everything into a systematic framework like the Titanic in its early hours. I've structured our approach using workflow sets which is a powerful tidymodels feature that helps manage complex modeling processes.
+With our preprocessing recipes and models defined, it's time to organize everything into a systematic framework, like the Titanic in its early hours. I've structured our approach using workflow sets which is a powerful tidymodels feature that helps manage complex modeling processes.
 
 I've grouped our preprocessing recipes by model type and created lists of our models with different configurations. Then, using `workflow_set()`, I've created all possible combinations of preprocessors and models. This gives us 9 different workflows:
 
@@ -420,7 +437,7 @@ Looking at the accuracy plot, we can see clear performance differences. The KNN 
 
 The ROC AUC visualization tells a more different story. Our logistic regression models (particularly `logreg_knn_impute_logreg_model`) reach AUC scores approaching 0.85-0.86, outperforming the KNN models in this metric. This indicates that while KNN models might have slightly better raw accuracy, the logistic regression models excel at ranking predictions by probability which is a crucial capability when we need to understand confidence levels in survival predictions.
 
-From the metric table, we can see that the best logistic regression model achieves an accuracy of approximately 79.6% with an AUC of 0.85, while the best KNN model reaches about 80.4% accuracy but with a slightly lower AUC of 0.83. This trade-off between metrics highlights an important consideration in model selection – whether we prioritize overall correctness (accuracy) or probabilistic ranking ability (AUC).
+From the metric table, we can see that the best logistic regression model achieves an accuracy of approximately 79.6% with an AUC of 0.85, while the best KNN model reaches about 80.4% accuracy but with a slightly lower AUC of 0.83. This trade-off between metrics highlights an important consideration in model selection, whether we prioritize overall correctness (accuracy) or probabilistic ranking ability (AUC).
 
 # **9. Selecting the Best Model and Making Predictions**
 
@@ -449,8 +466,13 @@ conf_mat <- test_results |>
   conf_mat(truth = Survived, estimate = pred_class)
 
 # Plot confusion matrix
-conf_mat |>
-  autoplot("heatmap")
+conf_mat |> 
+  autoplot("heatmap") +
+  scale_fill_gradient(low = "white", high = "#003f5c") + 
+  theme_minimal() +
+  labs(title = "Confusion Matrix Heatmap",
+       fill = "Count")
+
 
 # Calculate comprehensive metrics
 binary_metrics <- metric_set(accuracy, recall, precision, 
@@ -500,7 +522,7 @@ auc_value <- test_results |>
 auc_value
 ```
 
-A crucial aspect of binary classification models is understanding the tradeoff between sensitivity (catching true survivors) and specificity (correctly identifying non-survivors). The ROC curve visualizes this tradeoff across different probability thresholds.
+Another crucial aspect of binary classification models is understanding the tradeoff between sensitivity (catching true survivors) and specificity (correctly identifying non-survivors). The ROC curve visualizes this tradeoff across different probability thresholds.
 
 Our ROC curve shows a pronounced bow toward the upper-left corner of the plot, with the line rising steeply at first before gradually flattening. This shape indicates that our model achieves a good balance between true positive rate and false positive rate across various classification thresholds.
 
@@ -508,10 +530,14 @@ The calculated AUC value of 0.865 quantifies this performance. Interpretively, t
 
 This strong AUC score validates our model selection approach and suggests that logistic regression with KNN imputation effectively captures the complex patterns within the Titanic dataset. The curve's shape also offers insights into potential threshold adjustments we could make to favor either sensitivity or specificity depending on the specific analytical goals.
 
-# 11. Conclusion
+# Conclusion
 
 This analysis of the Titanic dataset demonstrates a complete data science workflow from preprocessing through model evaluation. Through careful data preprocessing with multiple imputation strategies and appropriate handling of categorical variables, I established a solid foundation for understanding the factors that influenced passenger survival. The systematic approach to model evaluation, comparing logistic regression and KNN models across different configurations using tidymodels, revealed that while KNN models achieved slightly higher accuracy, logistic regression offered better probabilistic ranking capabilities.
 
 The final model achieved 81% accuracy and an AUC of 0.865 on unseen test data. The model's higher specificity (88.2%) compared to recall (69.6%) reflects the historical reality that the majority of passengers did not survive, with clear patterns emerging around passenger class, gender, and age. These insights not only have statistical significance but also provide a numerical perspective on the historic tragedy.
 
 Throughout this project, I've applied a methodical, rigorous approach to data science using industry-standard tools and techniques. From exploratory data analysis that uncovered meaningful patterns to the implementation of cross-validation techniques ensuring reliable model evaluation, each step followed best practices in statistical modeling. This systematic workflow demonstrates how modern machine learning techniques can extract valuable insights even from historical datasets, bringing statistical clarity to complex human events while maintaining technical rigor and analytical integrity.
+
+::: callout-note
+Some visual elements of this report and some debugging were done with the help of AI. Everything that was done using AI was fully understood and comprehended.
+:::
