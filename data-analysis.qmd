@@ -7,6 +7,8 @@ editor: visual
 
 format:
   html:
+    embed-resources: true 
+    self-contained: true    
     theme: darkly
     highlight-style: atom-one-dark
     smooth-scroll: true
