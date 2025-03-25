@@ -11,7 +11,7 @@ The dataset is sourced from [kaggle.com](https://kaggle.com) and includes passen
 - Evaluate model performance using **accuracy, precision, recall, and ROC-AUC**.  
 
 ## 🛠 Usage
-Analysis report is available on: [ayzstha.com](https://ayzstha.com)
+Analysis report is available on: [ayzstha.com](https://www.ayzstha.com/assets/machine-learning/data-analysis.html)
 
 
 - Contributor: Aayush Shrestha - ayzstha@gmail.com  
